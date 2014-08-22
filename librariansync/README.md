@@ -11,7 +11,7 @@ It can be used completely independantly of librarian.py, provided the collection
 - [KUAL installed](http://www.mobileread.com/forums/showthread.php?t=203326)
 - [Python installed](http://www.mobileread.com/forums/showthread.php?t=195474)
 
-For instructions on how to do that, try the [mobiread forum](http://www.mobileread.com/forums/forumdisplay.php?f=150) in general.
+For instructions on how to do that, try the [mobileread forum](http://www.mobileread.com/forums/forumdisplay.php?f=150) in general.
 
 This script is inspired by [this thread](http://www.mobileread.com/forums/showthread.php?t=160855).
 
