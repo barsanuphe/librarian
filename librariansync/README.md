@@ -1,5 +1,4 @@
-librarian sync
---------------
+## librarian sync
 
 This is the part that generates the Kindle collections from a json file.
 It can be used completely independantly of librarian.py, provided the
