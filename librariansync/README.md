@@ -23,7 +23,7 @@ This script is inspired by
 
 ### Installation
 
-Once the requirements are met, just copy the librariansync folder into the
+Once the requirements are met, just copy the **librariansync** folder into the
 **extensions** folder on the kindle.
 
 ### Usage
@@ -36,7 +36,7 @@ which contains two entries:
 - *Add to collections (from json)* :
     to only add ebooks to existing or new collections, using the json file
 - *Rebuild all collections (from folders)* :
-    to clear all existing collection and rebuild them using the folder structure
+    to clear all existing collections and rebuild them using the folder structure
     inside the **documents** folder.
 
 
@@ -62,7 +62,7 @@ changes made.
 
 ### collections.json example
 
-For each path of an ebook (relative to the **documents** folder) is associated a
+Each ebook path (relative to the **documents** folder) is associated to a
 list of collection names.
 
     {
@@ -71,5 +71,3 @@ list of collection names.
         "library/Alexandre Dumas/Alexandre Dumas (2011) Le Comte De Monte-Cristo.mobi": ["gutenberg","french","already read"]
     }
 
-Library Sync creates all of the collections mentionned, then associates the
-relevant ebooks to them.
