@@ -1,4 +1,4 @@
-from .ebook import Ebook
+from .epub import Epub
 
 def fuzzy_search_in_list(searched, string_list, exact = False):
     for string in string_list:
@@ -27,18 +27,18 @@ class EbookSearch(object):
         search_string = search_string.lower()
         for eb in self.all_ebooks:
             if search_string.startswith("series:"):
-                if is_ebook_a_match( search_string.split("series:")[1], [eb.series], exact_search):
+                if is_ebook_a_match( search_string.split("series:")[1], [eb.metadata.series], exact_search):
                     filtered.append(eb)
             elif search_string.startswith("author:"):
-                if is_ebook_a_match( search_string.split("author:")[1], [eb.author], exact_search):
+                if is_ebook_a_match( search_string.split("author:")[1], [eb.metadata.author], exact_search):
                     filtered.append(eb)
             elif search_string.startswith("title:"):
-                if is_ebook_a_match( search_string.split("title:")[1], [eb.title], exact_search):
+                if is_ebook_a_match( search_string.split("title:")[1], [eb.metadata.title], exact_search):
                     filtered.append(eb)
             elif search_string.startswith("tag:"):
                 if fuzzy_search_in_list(search_string.split("tag:")[1].strip(), eb.tags, exact_search):
                     filtered.append(eb)
-            elif is_ebook_a_match( search_string, [eb.series, eb.author, eb.title], exact_search) or fuzzy_search_in_list(search_string, eb.tags, exact_search):
+            elif is_ebook_a_match( search_string, [eb.metadata.series, eb.metadata.author, eb.metadata.title], exact_search) or fuzzy_search_in_list(search_string, eb.tags, exact_search):
                 filtered.append(eb)
         return sorted(filtered, key=lambda x: x.filename)
 
@@ -47,18 +47,18 @@ class EbookSearch(object):
         exclude_term = exclude_term.lower()
         for eb in ebooks_list:
             if exclude_term.startswith("series:"):
-                if not is_ebook_a_match( exclude_term.split("series:")[1], [eb.series]):
+                if not is_ebook_a_match( exclude_term.split("series:")[1], [eb.metadata.series]):
                     filtered.append(eb)
             elif exclude_term.startswith("author:"):
-                if not is_ebook_a_match( exclude_term.split("author:")[1], [eb.author]):
+                if not is_ebook_a_match( exclude_term.split("author:")[1], [eb.metadata.author]):
                     filtered.append(eb)
             elif exclude_term.startswith("title:"):
-                if not is_ebook_a_match( exclude_term.split("title:")[1], [eb.title]) :
+                if not is_ebook_a_match( exclude_term.split("title:")[1], [eb.metadata.title]) :
                     filtered.append(eb)
             elif exclude_term.startswith("tag:"):
                 if not fuzzy_search_in_list(exclude_term.split("tag:")[1].strip(), eb.tags):
                     filtered.append(eb)
-            elif not is_ebook_a_match( exclude_term, [eb.series, eb.author, eb.title]) and not fuzzy_search_in_list(exclude_term, eb.tags):
+            elif not is_ebook_a_match( exclude_term, [eb.metadata.series, eb.metadata.author, eb.metadata.title]) and not fuzzy_search_in_list(exclude_term, eb.tags):
                 filtered.append(eb)
         return sorted(filtered, key=lambda x: x.filename)
 

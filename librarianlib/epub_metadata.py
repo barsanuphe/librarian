@@ -1,96 +1,121 @@
-import zipfile, xml.dom.minidom
+from lxml import etree
 
-class EpubMetadata(object):
+ns = {
+        'n':'urn:oasis:names:tc:opendocument:xmlns:container',
+        'pkg':'http://www.idpf.org/2007/opf',
+        'dc':'http://purl.org/dc/elements/1.1/'
+     }
 
-    def __init__(self, epub_filename, author_aliases = {}, from_db = None):
-        self.path = epub_filename
-        self.author_aliases = author_aliases
-        self.raw_metadata = {}
-        self.metadata = {}
-        self.is_complete = False
-        self.was_refreshed = False
-        if from_db is None:
-            self.get_epub_metadata()
-            self.sanitize_epub_metadata()
-        else:
-            self.metadata = from_db
-            self.is_complete = ("author" in self.keys and "title" in self.keys and "year" in self.keys)
+def sanitize(name, result, author_aliases):
+    if name == "creator" or name == "author":
+        #TODO:
+        #if len(self.raw_metadata["dc:creator"]) >= 2:
+            #res["author"] = "Various"
+        if ',' in result:
+            parts = result.split(",")
+            if len(parts) == 2:
+                result = "%s %s"%(parts[1].strip(), parts[0].strip())
+            if len(parts) > 2:
+                result = "Various"
+        result = result.title()
+        if result in list(author_aliases.keys()):
+            result = author_aliases[result]
+        return result
+
+    if name == "series_index":
+        return int(float(result))
+    if name == "year":
+        return int(result[:4])
+
+    return result
+
+class FakeOpfFile(object):
+    def __init__(self, entries, author_aliases):
+        object.__setattr__(self, "author_aliases", author_aliases)
+        object.__getattribute__(self, "__dict__").update(entries)
+    def __getattribute__(self, name):
+        if name == "author":
+            name = "creator"
+        if name == "year": #TODO: do better
+            return sanitize(name, object.__getattribute__(self, "__dict__").get("date", ""), object.__getattribute__(self, "author_aliases"))
+        return sanitize(name, object.__getattribute__(self, "__dict__").get(name, ""), object.__getattribute__(self, "author_aliases"))
+
+class OpfFile(object):
+    def __init__(self, opf, author_aliases):
+        object.__setattr__(self, "opf", opf)
+        object.__setattr__(self, "author_aliases", author_aliases)
+        object.__setattr__(self, "tree", etree.parse(self.opf))
+        object.__setattr__(self, "metadata_element", self.tree.xpath('/pkg:package/pkg:metadata',namespaces = ns)[0])
+        object.__setattr__(self, "has_changed", False)
+
+    #TODO: return list when more than one element of type name exists!!
+    def get_element(self, name):
+        for node in self.metadata_element:
+            tag = etree.QName(node.tag)
+            short_tag = tag.localname
+            if short_tag == name:
+                return node
+            elif short_tag == "meta":
+                if node.get("name") == "calibre:" + name:
+                    return node
+        return None
 
     @property
     def keys(self):
-        return list(self.metadata.keys())
+        return list(self.to_dict().keys())
 
-    def __getattr__(self, key):
-        if key in list(self.metadata.keys()):
-            return self.metadata[key]
-        else:
-            return ""
+    @property
+    def is_complete(self):
+        return ("title" in self.keys and "date" in self.keys and "creator" in self.keys)
 
-    def get_epub_metadata(self):
-        # prepare to read from the .epub file
-        zip = zipfile.ZipFile(self.path)
-
-        # find the contents metafile
-        txt = zip.read('META-INF/container.xml')
-        tree = xml.dom.minidom.parseString(txt)
-        rootfile = tree.getElementsByTagName("rootfile")[0]
-        filename = rootfile.getAttribute("full-path")
-
-        # grab the metadata block from the contents metafile
-        cf = zip.read(filename)
-        tree = xml.dom.minidom.parseString(cf)
-        try:
-            md = tree.getElementsByTagName("metadata")[0]
-        except:
-            md = tree.getElementsByTagName("opf:metadata")[0]
-        res = {}
-        for child in md.childNodes:
-            if child.nodeName == "meta":
-                if child.hasAttribute("name") and child.getAttribute("name") == "calibre:series":
-                    res["series"] = child.getAttribute("content")
-                elif child.hasAttribute("name") and child.getAttribute("name") == "calibre:series_index":
-                    res["series_index"] = child.getAttribute("content")
-
-            elif child.hasChildNodes() and child.firstChild.nodeType == xml.dom.Node.TEXT_NODE:
-                if child.nodeName in list(res.keys()):
-                    res[child.nodeName].append(child.firstChild.data)
-                else:
-                    res[child.nodeName] = [child.firstChild.data]
-        self.raw_metadata = res
-
-    def sanitize_epub_metadata(self):
-        res = {}
-        try:
-            if len(self.raw_metadata["dc:creator"]) >= 2:
-                res["author"] = "Various"
+    def to_dict(self):
+        metadata_dict = {}
+        for node in self.metadata_element:
+            tag = etree.QName(node.tag)
+            short_tag = tag.localname
+            if short_tag == "meta":
+                #TODO: test
+                try:
+                    metadata_dict[node.get("name").split("calibre:")[1]] = sanitize(node.get("name").split("calibre:")[1], node.get("content"), self.author_aliases)
+                except:
+                   # print("non calibre: ", node.get("name"))
+                    pass
             else:
-                res["author"] = self.raw_metadata["dc:creator"][0]
-                if ',' in res["author"]:
-                    parts = res["author"].split(",")
-                    if len(parts) == 2:
-                        res["author"] = "%s %s"%(parts[1].strip(), parts[0].strip())
-                    if len(parts) > 2:
-                        res["author"] = "Various"
-            res["author"] = res["author"].title()
-            if res["author"] in list(self.author_aliases.keys()):
-                res["author"] = self.author_aliases[res["author"]]
+                metadata_dict[short_tag] = sanitize(short_tag, node.text, self.author_aliases) #TODO: test
+        return metadata_dict
 
-            res["title"] = self.raw_metadata["dc:title"][0].replace(":", "").replace("?","").replace("/", "-").title()
-            res["year"] = int(self.raw_metadata["dc:date"][0][:4])
-            res["lang"] = self.raw_metadata["dc:language"][0]
-            if "series" in list(self.raw_metadata.keys()):
-                res["series"] = self.raw_metadata["series"].title()
-            if "series_index" in list(self.raw_metadata.keys()):
-                res["series_index"] = int(float(self.raw_metadata["series_index"]))
+    def save(self):
+        with open(self.opf, 'w') as file_handle:
+            file_handle.write(etree.tostring(self.tree, pretty_print=True, encoding='utf8', xml_declaration=True).decode("utf8"))
 
-        except Exception as err:
-            print("!!!!! ", err, "!!!! \n")
-            return None
-        self.is_complete = True
-        self.was_refreshed = True
-        self.metadata = res
+    def __getattr__(self, name):
+        if name == "year":
+            node = self.get_element("date")
+            return sanitize(name, node.text, self.author_aliases)
 
-if __name__ == "__main__":
-    md = EpubMetadata("test.epub")
-    print(md.metadata)
-    print(md.author)
+        #TODO: metadata aliases
+        if name == "author":
+            name = "creator"
+
+        if name not in self.keys:
+            return "" # None?
+
+        node = self.get_element(name)
+        if node.text is None: # meta
+            return sanitize(name, node.get("content").title(), self.author_aliases)
+        else:
+            return sanitize(name, node.text.title(), self.author_aliases)
+
+    def __setattr__(self, name, value):
+        if name == "author":
+            name = "creator"
+        #TODO: year
+
+        node = self.get_element(name)
+        if node.text is None: # meta
+            node.set("content", value)
+        else:
+            node.text = value
+        object.__setattr__(self, "has_changed", True)
+        self.save()
+
