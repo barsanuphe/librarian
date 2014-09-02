@@ -26,6 +26,8 @@ def sanitize(name, result, author_aliases):
         return int(float(result))
     if name == "year":
         return int(result[:4])
+    if name == "title":
+        return result.replace("/", "-")
 
     return result
 

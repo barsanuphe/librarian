@@ -1,16 +1,19 @@
 import tempfile, shutil, os, subprocess, hashlib, zipfile
 from lxml import etree
-ns = {
-        'n':'urn:oasis:names:tc:opendocument:xmlns:container',
-        'pkg':'http://www.idpf.org/2007/opf',
-        'dc':'http://purl.org/dc/elements/1.1/'
-     }
 
-from .epub_metadata import OpfFile, FakeOpfFile
+from .epub_metadata import OpfFile, FakeOpfFile, ns
+
+AUTHORIZED_TEMPLATE_PARTS = {
+    "$a": "author",
+    "$y": "year",
+    "$t": "title",
+    "$s": "series",
+    "$i": "series_index",
+}
 
 class Epub(object):
 
-    def __init__(self, path, library_dir, author_aliases):
+    def __init__(self, path, library_dir, author_aliases, ebook_filename_template):
         self.path = path
         self.library_dir = library_dir
         self.author_aliases = author_aliases
@@ -22,7 +25,7 @@ class Epub(object):
         self.tags = []
         self.has_changed = False
         self.loaded_metadata = None
-
+        self.template = ebook_filename_template
         self.was_converted_to_mobi = False
         self.converted_to_mobi_from_hash = ""
         self.converted_to_mobi_hash = ""
@@ -57,10 +60,16 @@ class Epub(object):
     def current_hash(self):
         return hashlib.sha1(open(self.path, 'rb').read()).hexdigest()
 
+    def set_filename_template(self, template):
+        self.template = template
+
     @property
     def filename(self):
-        sanitized_title = self.metadata.title.replace(":", "").replace("?","").replace("/", "-")
-        return "%s/%s (%s) %s.%s"%(self.metadata.author, self.metadata.author, self.metadata.year, sanitized_title, self.extension)
+        template = self.template
+        for key in list(AUTHORIZED_TEMPLATE_PARTS.keys()):
+            template = template.replace(key, str(getattr(self.metadata, AUTHORIZED_TEMPLATE_PARTS[key])))
+        template = template.replace(":", "").replace("?","")
+        return "%s.%s"%(template, self.extension)
 
     @property
     def exported_filename(self):
@@ -83,7 +92,7 @@ class Epub(object):
         return True
 
     def to_database_json(self):
-        if self.has_changed:
+        if self.has_changed or self.is_opf_open:
             if not self.is_opf_open:
                 self.open_metadata()
             return  {
