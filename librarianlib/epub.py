@@ -162,6 +162,9 @@ class Epub(object):
             self.tags.remove(tag.strip().lower())
         self.has_changed = True
 
+    def get_relative_path(self, path):
+        return path.split(self.library_dir)[1][1:]
+
     def rename_from_metadata(self):
         if not self.is_opf_open:
             self.open_metadata()
@@ -169,9 +172,9 @@ class Epub(object):
             new_name = os.path.join(self.library_dir, self.filename)
             if new_name != self.path:
                 if not os.path.exists( os.path.dirname(new_name) ):
-                    print("Creating directory", os.path.dirname(new_name) )
+                    print("Creating directory", self.get_relative_path(os.path.dirname(new_name)) )
                     os.makedirs( os.path.dirname(new_name) )
-                print("Renaming to ", new_name)
+                print("Renaming to ", self.get_relative_path(new_name))
                 shutil.move(self.path, new_name)
                 # refresh name
                 self.path = new_name
@@ -225,4 +228,3 @@ class Epub(object):
                 info += "\t%s : \t%s\n"%(key, getattr(self.metadata, key))
         info += "\n"
         return info
-
