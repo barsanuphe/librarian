@@ -209,4 +209,11 @@ class Epub(object):
         self.last_synced_hash = self.converted_to_mobi_hash
         self.has_changed = True
 
+    def info(self, field_list = None):
+        info = str(self) + "\n" + "-"*len(str(self)) + "\n"
+        for key in self.metadata.keys:
+            if (field_list and key in field_list) or not field_list:
+                info += "\t%s : \t%s\n"%(key, getattr(self.metadata, key))
+        info += "\n"
+        return info
 

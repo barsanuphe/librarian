@@ -34,6 +34,8 @@ class FakeOpfFile(object):
         object.__setattr__(self, "author_aliases", author_aliases)
         object.__getattribute__(self, "__dict__").update(entries)
     def __getattribute__(self, name):
+        if name == "keys":
+            return sorted([el for el in list(object.__getattribute__(self, "__dict__").keys()) if el != "author_aliases"])
         if name == "author":
             name = "creator"
         if name == "year": #TODO: do better
@@ -62,7 +64,7 @@ class OpfFile(object):
 
     @property
     def keys(self):
-        return list(self.to_dict().keys())
+        return sorted(list(self.to_dict().keys()))
 
     @property
     def is_complete(self):
