@@ -69,7 +69,10 @@ class OpfFile(object):
             elif short_tag == "meta":
                 if node.get("name") == "calibre:" + name:
                     hits.append(node)
-        return hits[0]
+        if len(hits) >= 1:
+            return hits[0]
+        else:
+            return None
 
     @property
     def keys(self):
