@@ -23,9 +23,15 @@ def sanitize(name, result, author_aliases):
         return result
 
     if name == "series_index":
-        return int(float(result))
+        try:
+            return float(result)
+        except:
+            return ""
     if name == "year":
-        return int(result[:4])
+        try:
+            return int(result[:4])
+        except:
+            return ""
     if name == "title":
         return result.replace("/", "-")
 
@@ -54,15 +60,16 @@ class OpfFile(object):
 
     #TODO: return list when more than one element of type name exists!!
     def get_element(self, name):
+        hits = []
         for node in self.metadata_element:
             tag = etree.QName(node.tag)
             short_tag = tag.localname
             if short_tag == name:
-                return node
+                hits.append(node)
             elif short_tag == "meta":
                 if node.get("name") == "calibre:" + name:
-                    return node
-        return None
+                    hits.append(node)
+        return hits[0]
 
     @property
     def keys(self):
@@ -73,6 +80,7 @@ class OpfFile(object):
         return ("title" in self.keys and "date" in self.keys and "creator" in self.keys)
 
     def to_dict(self):
+        #TODO: manage multiple elements of same type
         metadata_dict = {}
         for node in self.metadata_element:
             tag = etree.QName(node.tag)
