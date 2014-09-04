@@ -6,8 +6,15 @@ ns = {
         'dc':'http://purl.org/dc/elements/1.1/'
      }
 
+METADATA_ALIASES = {
+    "year": "date",
+    "author": "creator",
+    }
+
 def sanitize(name, result, author_aliases):
-    if name == "creator" or name == "author":
+    if name in list(METADATA_ALIASES.keys()):
+        name = METADATA_ALIASES[name]
+    if name == "creator":
         #TODO:
         #if len(self.raw_metadata["dc:creator"]) >= 2:
             #res["author"] = "Various"
@@ -24,12 +31,12 @@ def sanitize(name, result, author_aliases):
 
     if name == "series_index":
         try:
-            return float(result)
+            return result
         except:
             return ""
-    if name == "year":
+    if name == "date":
         try:
-            return int(result[:4])
+            return result[:4]
         except:
             return ""
     if name == "title":
@@ -43,11 +50,11 @@ class FakeOpfFile(object):
         object.__getattribute__(self, "__dict__").update(entries)
     def __getattribute__(self, name):
         if name == "keys":
-            return sorted([el for el in list(object.__getattribute__(self, "__dict__").keys()) if el != "author_aliases"])
-        if name == "author":
-            name = "creator"
-        if name == "year": #TODO: do better
-            return sanitize(name, object.__getattribute__(self, "__dict__").get("date", ""), object.__getattribute__(self, "author_aliases"))
+            all_keys = [el for el in list(object.__getattribute__(self, "__dict__").keys()) if el != "author_aliases"]
+            all_keys.extend(list(METADATA_ALIASES.keys()))
+            return sorted(all_keys)
+        if name in list(METADATA_ALIASES.keys()):
+            name = METADATA_ALIASES[name]
         return sanitize(name, object.__getattribute__(self, "__dict__").get(name, ""), object.__getattribute__(self, "author_aliases"))
 
 class OpfFile(object):
@@ -76,7 +83,9 @@ class OpfFile(object):
 
     @property
     def keys(self):
-        return sorted(list(self.to_dict().keys()))
+        all_keys = list(self.to_dict().keys())
+        all_keys.extend(list(METADATA_ALIASES.keys()))
+        return sorted(all_keys)
 
     @property
     def is_complete(self):
@@ -104,13 +113,8 @@ class OpfFile(object):
             file_handle.write(etree.tostring(self.tree, pretty_print=True, encoding='utf8', xml_declaration=True).decode("utf8"))
 
     def __getattr__(self, name):
-        if name == "year":
-            node = self.get_element("date")
-            return sanitize(name, node.text, self.author_aliases)
-
-        #TODO: metadata aliases
-        if name == "author":
-            name = "creator"
+        if name in list(METADATA_ALIASES.keys()):
+            name = METADATA_ALIASES[name]
 
         if name not in self.keys:
             return "" # None?
@@ -122,9 +126,8 @@ class OpfFile(object):
             return sanitize(name, node.text.title(), self.author_aliases)
 
     def __setattr__(self, name, value):
-        if name == "author":
-            name = "creator"
-        #TODO: year
+        if name in list(METADATA_ALIASES.keys()):
+            name = METADATA_ALIASES[name]
 
         node = self.get_element(name)
         if node.text is None: # meta
