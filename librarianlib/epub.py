@@ -21,7 +21,7 @@ class Epub(object):
         self.is_opf_open = False
         self.metadata_filename = ""
         self.metadata = None
-        self.temp_dir = tempfile.mkdtemp()
+
         self.tags = []
         self.has_changed = False
         self.loaded_metadata = None
@@ -108,6 +108,7 @@ class Epub(object):
 
     def open_metadata(self):
         if not self.is_opf_open:
+            self.temp_dir = tempfile.mkdtemp()
             self.extract_opf_file()
             self.is_opf_open = True
 
@@ -141,16 +142,17 @@ class Epub(object):
             shutil.rmtree(tempdir)
 
     def save_metadata(self):
-        if self.is_open and self.metadata.has_changed:
+        if self.is_opf_open and self.metadata.has_changed:
             print("Saving epub...")
             self.remove_from_zip(self.path, self.metadata_filename)
             with zipfile.ZipFile(self.path, 'a') as z:
                 z.write(self.temp_opf, arcname = self.metadata_filename)
 
     def close_metadata(self):
-        self.is_open = False
-        #clean up
-        self.__exit__(None, None, None)
+        if self.is_opf_open:
+            self.is_opf_open = False
+            #clean up
+            self.__exit__(None, None, None)
 
     def add_to_collection(self, tag):
         if tag.strip() != "" and tag.strip().lower() not in self.tags:
@@ -228,3 +230,45 @@ class Epub(object):
                 info += "\t%s : \t%s\n"%(key, getattr(self.metadata, key))
         info += "\n"
         return info
+
+    def write_metadata(self, key, value):
+        #TODO: check if key can have multiple values!
+        if key in self.metadata.keys:
+            setattr(self.metadata, key, value)
+        else:
+            print("Metadata field ", key, "does not yet exist!")
+            #TODO: if key is still a valid field, set it
+
+    def update_metadata(self, update_list):
+        # force metadata refresh
+        if not self.metadata.is_opf_open:
+            self.open_metadata()
+
+        original = str(self)
+
+        for part in update_list:
+            try:
+                key, value = part.split(":")
+                self.write_metadata(key, value.title())
+            except:
+                continue # ignore this part only
+
+        new = str(self)
+        #TODO compare all metadata!
+        if original == new:
+            print("No change detected.")
+            return # nothing to do
+
+        print("Updating epub metadata:")
+        print(original, " -> ", new)
+
+        answer = input("Confirm update? y/n ").lower()
+        if answer == 'y':
+            print("Saving ", new)
+            self.save_metadata()
+        else:
+            # refreshing from unmodified epub
+            self.close_metadata()
+            self.open_metadata()
+            print("Discarding changes, reverting to ", str(self))
+
