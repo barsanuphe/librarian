@@ -12,7 +12,7 @@ METADATA_ALIASES = {
     }
 
 def sanitize(name, result, author_aliases):
-    if name in list(METADATA_ALIASES.keys()):
+    if name in METADATA_ALIASES.keys():
         name = METADATA_ALIASES[name]
     if name == "creator":
         #TODO:
@@ -25,7 +25,7 @@ def sanitize(name, result, author_aliases):
             if len(parts) > 2:
                 result = "Various"
         result = result.title()
-        if result in list(author_aliases.keys()):
+        if result in author_aliases.keys():
             result = author_aliases[result]
         return result
 
@@ -50,10 +50,10 @@ class FakeOpfFile(object):
         object.__getattribute__(self, "__dict__").update(entries)
     def __getattribute__(self, name):
         if name == "keys":
-            all_keys = [el for el in list(object.__getattribute__(self, "__dict__").keys()) if el != "author_aliases"]
-            all_keys.extend(list(METADATA_ALIASES.keys()))
+            all_keys = [el for el in object.__getattribute__(self, "__dict__").keys() if el != "author_aliases"]
+            all_keys.extend(METADATA_ALIASES.keys())
             return sorted(all_keys)
-        if name in list(METADATA_ALIASES.keys()):
+        if name in METADATA_ALIASES.keys():
             name = METADATA_ALIASES[name]
         return sanitize(name, object.__getattribute__(self, "__dict__").get(name, ""), object.__getattribute__(self, "author_aliases"))
 
@@ -84,7 +84,7 @@ class OpfFile(object):
     @property
     def keys(self):
         all_keys = list(self.to_dict().keys())
-        all_keys.extend(list(METADATA_ALIASES.keys()))
+        all_keys.extend(METADATA_ALIASES.keys())
         return sorted(all_keys)
 
     @property
@@ -113,7 +113,7 @@ class OpfFile(object):
             file_handle.write(etree.tostring(self.tree, pretty_print=True, encoding='utf8', xml_declaration=True).decode("utf8"))
 
     def __getattr__(self, name):
-        if name in list(METADATA_ALIASES.keys()):
+        if name in METADATA_ALIASES.keys():
             name = METADATA_ALIASES[name]
 
         if name not in self.keys:
@@ -126,7 +126,7 @@ class OpfFile(object):
             return sanitize(name, node.text.title(), self.author_aliases)
 
     def __setattr__(self, name, value):
-        if name in list(METADATA_ALIASES.keys()):
+        if name in METADATA_ALIASES.keys():
             name = METADATA_ALIASES[name]
 
         node = self.get_element(name)

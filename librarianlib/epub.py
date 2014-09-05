@@ -22,6 +22,17 @@ except:
     def read(text):
         return text
 
+def has_changed(f, *args):
+    def new_f(*args):
+        if f(*args):
+            args[0].has_changed = True
+    return new_f
+
+def strip_lower(f, *args):
+    def new_f(*args):
+        tag = args[1].strip().lower()
+        f(args[0], tag)
+    return new_f
 
 AUTHORIZED_TEMPLATE_PARTS = {
     "$a": "author",
@@ -102,7 +113,7 @@ class Epub(object):
     @property
     def filename(self):
         template = self.template
-        for key in list(AUTHORIZED_TEMPLATE_PARTS.keys()):
+        for key in AUTHORIZED_TEMPLATE_PARTS.keys():
             template = template.replace(key, str(getattr(self.metadata, AUTHORIZED_TEMPLATE_PARTS[key])))
         template = template.replace(":", "").replace("?","")
         return "%s.%s"%(template, self.extension)
@@ -192,19 +203,26 @@ class Epub(object):
             #clean up
             self.__exit__(None, None, None)
 
+    @strip_lower
+    @has_changed
     def add_to_collection(self, tag):
-        if tag.strip() != "" and tag.strip().lower() not in self.tags:
-            self.tags.append(tag.strip().lower())
-        self.has_changed = True
+        if tag != "" and tag not in self.tags:
+            self.tags.append(tag)
+            return True
+        return False
 
+    @strip_lower
+    @has_changed
     def remove_from_collection(self, tag):
-        if tag.strip() != "" and tag.strip().lower() in self.tags:
-            self.tags.remove(tag.strip().lower())
-        self.has_changed = True
+        if tag != "" and tag in self.tags:
+            self.tags.remove(tag)
+            return True
+        return False
 
     def get_relative_path(self, path):
         return path.split(self.library_dir)[1][1:]
 
+    @has_changed
     def rename_from_metadata(self):
         if not self.is_opf_open:
             self.open_metadata()
@@ -218,15 +236,17 @@ class Epub(object):
                 shutil.move(self.path, new_name)
                 # refresh name
                 self.path = new_name
-                self.has_changed = True
+                return True
+        return False
 
+    @has_changed
     def export_to_mobi(self, mobi_dir):
         output_filename = os.path.join(mobi_dir, self.exported_filename)
         if os.path.exists(output_filename):
             # check if ebook has changed since the mobi was created
             if self.current_hash == self.converted_to_mobi_from_hash:
                 self.was_converted_to_mobi = True
-                return
+                return False
 
         if not os.path.exists( os.path.dirname(output_filename) ):
             print("Creating directory", os.path.dirname(output_filename) )
@@ -239,8 +259,9 @@ class Epub(object):
         self.converted_to_mobi_hash = hashlib.sha1(open(output_filename, 'rb').read()).hexdigest()
         self.converted_to_mobi_from_hash = self.current_hash
         self.was_converted_to_mobi = True
-        self.has_changed = True
+        return True
 
+    @has_changed
     def sync_with_kindle(self, mobi_dir, kindle_documents_dir):
         if not self.was_converted_to_mobi:
             self.export_to_mobi(mobi_dir)
@@ -254,12 +275,12 @@ class Epub(object):
         # check if exists and with latest hash
         if os.path.exists(output_filename) and self.last_synced_hash == self.converted_to_mobi_hash:
             print("   - Skipping already synced .mobi: ", self.filename)
-            return
+            return False
 
         print("   + Syncing: ", self.filename)
         shutil.copy( os.path.join(mobi_dir, self.exported_filename), output_filename)
         self.last_synced_hash = self.converted_to_mobi_hash
-        self.has_changed = True
+        return True
 
     def info(self, field_list = None):
         info = str(self) + "\n" + "-"*len(str(self)) + "\n"
@@ -268,6 +289,7 @@ class Epub(object):
                 info += "\t%s : \t%s\n"%(key, getattr(self.metadata, key))
         info += "\n"
         return info
+
 
     def write_metadata(self, key, value):
         #TODO: check if key can have multiple values!
@@ -310,7 +332,10 @@ class Epub(object):
             self.open_metadata()
             print("Discarding changes, reverting to ", str(self))
 
+    @has_changed
     def set_progress(self, read_value):
+        if read_value not in ReadStatus.__members__.keys():
+            return False
         print("Setting ", str(self), "as ", ReadStatus[read_value].name)
         self.read = ReadStatus[read_value]
-        self.has_changed = True
+        return True

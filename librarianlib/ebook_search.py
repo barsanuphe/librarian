@@ -101,7 +101,7 @@ class EbookSearch(object):
                 all_tags["untagged"] += 1
             else:
                 for tag in ebook.tags:
-                    if tag in list(all_tags.keys()):
+                    if tag in all_tags.keys():
                         all_tags[tag] += 1
                     else:
                         all_tags[tag] = 1
