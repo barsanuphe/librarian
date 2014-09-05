@@ -1,4 +1,4 @@
-from .epub import Epub
+from .epub import Epub, ReadStatus
 
 def fuzzy_search_in_list(searched, string_list, exact = False):
     for string in string_list:
@@ -38,6 +38,9 @@ class EbookSearch(object):
             elif search_string.startswith("tag:"):
                 if fuzzy_search_in_list(search_string.split("tag:")[1].strip(), eb.tags, exact_search):
                     filtered.append(eb)
+            elif search_string.startswith("progress:"):
+                if fuzzy_search_in_list(ReadStatus[search_string.split("progress:")[1].strip()], [eb.read], True):
+                    filtered.append(eb)
             elif is_ebook_a_match( search_string, [eb.metadata.series, eb.metadata.author, eb.metadata.title], exact_search) or fuzzy_search_in_list(search_string, eb.tags, exact_search):
                 filtered.append(eb)
         return sorted(filtered, key=lambda x: x.filename)
@@ -57,6 +60,9 @@ class EbookSearch(object):
                     filtered.append(eb)
             elif exclude_term.startswith("tag:"):
                 if not fuzzy_search_in_list(exclude_term.split("tag:")[1].strip(), eb.tags):
+                    filtered.append(eb)
+            elif exclude_term.startswith("progress:"):
+                if not fuzzy_search_in_list(ReadStatus[exclude_term.split("progress:")[1].strip()], [eb.read], True):
                     filtered.append(eb)
             elif not is_ebook_a_match( exclude_term, [eb.metadata.series, eb.metadata.author, eb.metadata.title]) and not fuzzy_search_in_list(exclude_term, eb.tags):
                 filtered.append(eb)

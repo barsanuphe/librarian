@@ -1,6 +1,6 @@
 import tempfile, shutil, os, subprocess, hashlib, zipfile
 from lxml import etree
-
+from enum import Enum
 from .epub_metadata import OpfFile, FakeOpfFile, ns
 
 AUTHORIZED_TEMPLATE_PARTS = {
@@ -10,6 +10,13 @@ AUTHORIZED_TEMPLATE_PARTS = {
     "$s": "series",
     "$i": "series_index",
 }
+
+
+class ReadStatus(Enum):
+    not_read = 0
+    reading = 1
+    read = 2
+
 
 class Epub(object):
 
@@ -30,6 +37,7 @@ class Epub(object):
         self.converted_to_mobi_from_hash = ""
         self.converted_to_mobi_hash = ""
         self.last_synced_hash = ""
+        self.read = ReadStatus(0)
 
     def __enter__(self):
         return self
@@ -86,6 +94,7 @@ class Epub(object):
             self.converted_to_mobi_hash = filename_dict['converted_to_mobi_hash']
             self.converted_to_mobi_from_hash = filename_dict['converted_to_mobi_from_hash']
             self.last_synced_hash = filename_dict['last_synced_hash']
+            self.read = ReadStatus(int(filename_dict['read']))
         except Exception as err:
             print("Incorrect db!", err)
             return False
@@ -101,7 +110,8 @@ class Epub(object):
                         "last_synced_hash": self.last_synced_hash,
                         "converted_to_mobi_hash": self.converted_to_mobi_hash,
                         "converted_to_mobi_from_hash": self.converted_to_mobi_from_hash,
-                        "metadata": self.metadata.to_dict()
+                        "metadata": self.metadata.to_dict(),
+                        "read": self.read.value
                     }
         else:
             return self.loaded_metadata
@@ -272,3 +282,7 @@ class Epub(object):
             self.open_metadata()
             print("Discarding changes, reverting to ", str(self))
 
+    def set_progress(self, read_value):
+        print("Setting ", str(self), "as ", ReadStatus[read_value].name)
+        self.read = ReadStatus[read_value]
+        self.has_changed = True
