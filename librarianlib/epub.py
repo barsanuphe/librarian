@@ -3,6 +3,26 @@ from lxml import etree
 from enum import Enum
 from .epub_metadata import OpfFile, FakeOpfFile, ns
 
+try:
+    from colorama import init
+    init(autoreset=True)
+    from colorama import Fore, Back, Style
+
+    def not_read(text):
+        return Fore.YELLOW + Style.BRIGHT + text
+    def reading(text):
+        return Fore.GREEN + Style.BRIGHT  + text
+    def read(text):
+        return Fore.BLUE + Style.BRIGHT + text
+except:
+    def not_read(text):
+        return "** " + text
+    def reading(text):
+        return ":: " + text
+    def read(text):
+        return text
+
+
 AUTHORIZED_TEMPLATE_PARTS = {
     "$a": "author",
     "$y": "year",
@@ -49,16 +69,24 @@ class Epub(object):
     def __str__(self):
         if self.metadata.series != "":
             if self.metadata.series_index != "":
-                series_info = "[ %s %s ]"%(self.metadata.series, self.metadata.series_index)
+                series_info = "[ %s #%s ]"%(self.metadata.series, self.metadata.series_index)
             else:
                 series_info = "[ %s ]"%(self.metadata.series)
         else:
             series_info = ""
 
+        str = ""
         if self.tags == []:
-            return "%s (%s) %s %s"%(self.metadata.author, self.metadata.year, self.metadata.title, series_info)
+            str =  "%s (%s) %s %s"%(self.metadata.author, self.metadata.year, self.metadata.title, series_info)
         else:
-            return "%s (%s) %s %s [ %s ]"%(self.metadata.author, self.metadata.year, self.metadata.title, series_info, ", ".join(self.tags))
+            str =  "%s (%s) %s %s [ %s ]"%(self.metadata.author, self.metadata.year, self.metadata.title, series_info, ", ".join(self.tags))
+
+        if self.read == ReadStatus.not_read:
+            return not_read(str)
+        elif self.read == ReadStatus.reading:
+            return reading(str)
+        else:
+            return read(str)
 
     @property
     def extension(self):
