@@ -78,19 +78,19 @@ class Epub(object):
             shutil.rmtree(self.temp_dir)
 
     def __str__(self):
-        if self.metadata.series != "":
-            if self.metadata.series_index != "":
-                series_info = "[ %s #%s ]"%(self.metadata.series, self.metadata.series_index)
+        if self.metadata.get_values("series") != []:
+            if self.metadata.get_values("series_index") != []:
+                series_info = "[ %s #%s ]"%(self.metadata.get_values("series")[0], self.metadata.get_values("series_index")[0])
             else:
-                series_info = "[ %s ]"%(self.metadata.series)
+                series_info = "[ %s ]"%(self.metadata.get_values("series")[0])
         else:
             series_info = ""
 
         str = ""
         if self.tags == []:
-            str =  "%s (%s) %s %s"%(self.metadata.author, self.metadata.year, self.metadata.title, series_info)
+            str =  "%s (%s) %s %s"%(self.metadata.get_values("author")[0], self.metadata.get_values("year")[0], self.metadata.get_values("title")[0], series_info)
         else:
-            str =  "%s (%s) %s %s [ %s ]"%(self.metadata.author, self.metadata.year, self.metadata.title, series_info, ", ".join(self.tags))
+            str =  "%s (%s) %s %s [ %s ]"%(self.metadata.get_values("author")[0], self.metadata.get_values("year")[0], self.metadata.get_values("title")[0], series_info, ", ".join(self.tags))
 
         if self.read == ReadStatus.not_read:
             return not_read(str)
@@ -114,7 +114,8 @@ class Epub(object):
     def filename(self):
         template = self.template
         for key in AUTHORIZED_TEMPLATE_PARTS.keys():
-            template = template.replace(key, str(getattr(self.metadata, AUTHORIZED_TEMPLATE_PARTS[key])))
+            if len(self.metadata.get_values(AUTHORIZED_TEMPLATE_PARTS[key])) >= 1:
+                template = template.replace(key, self.metadata.get_values(AUTHORIZED_TEMPLATE_PARTS[key])[0])
         template = template.replace(":", "").replace("?","")
         return "%s.%s"%(template, self.extension)
 
@@ -149,7 +150,7 @@ class Epub(object):
                         "last_synced_hash": self.last_synced_hash,
                         "converted_to_mobi_hash": self.converted_to_mobi_hash,
                         "converted_to_mobi_from_hash": self.converted_to_mobi_from_hash,
-                        "metadata": self.metadata.to_dict(),
+                        "metadata": self.metadata.metadata_dict,
                         "read": self.read.value
                     }
         else:
@@ -286,20 +287,19 @@ class Epub(object):
         info = str(self) + "\n" + "-"*len(str(self)) + "\n"
         for key in self.metadata.keys:
             if (field_list and key in field_list) or not field_list:
-                info += "\t%s : \t%s\n"%(key, getattr(self.metadata, key))
+                info += "\t%s : \t%s\n"%(key, ",".join(self.metadata.get_values(key)))
         info += "\n"
         return info
 
 
     def write_metadata(self, key, value):
-        #TODO: check if key can have multiple values!
         if key not in self.metadata.keys:
             print("Adding new metadata field", key)
-        setattr(self.metadata, key, value)
+        self.metadata.set_value(key, value)
 
     def update_metadata(self, update_list):
         # force metadata refresh
-        if not self.metadata.is_opf_open:
+        if not self.is_opf_open:
             self.open_metadata()
 
         changes = ""
@@ -308,13 +308,13 @@ class Epub(object):
             try:
                 key, value = part.split(":")
                 #TODO: get all values for field
-                old = getattr(self.metadata, key)
-                if old != value.title():
+                old_values = self.metadata.get_values(key)
+                if value.title() not in old_values:
                     #TODO: list of unique fields
                     self.write_metadata(key, value.title())
-                    changes += "%s  -> %s\n"%(old, value.title())
-            except:
-                print("Error writing metadata", part)
+                    changes += "%s  -> %s\n"%(old_values, value.title())
+            except Exception as err:
+                print("Error writing metadata", part, ":", err)
                 continue # ignore this part only
 
         if changes == "":
