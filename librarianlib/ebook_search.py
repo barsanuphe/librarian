@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from .epub import Epub, ReadStatus
 
 def fuzzy_search_in_list(searched, string_list, exact = False):
@@ -94,15 +96,11 @@ class EbookSearch(object):
         return sorted(complete_filtered_list, key=lambda x: x.filename)
 
     def list_tags(self):
-        all_tags = {}
-        all_tags["untagged"] = 0
+        all_tags = defaultdict(lambda: 0)
         for ebook in self.all_ebooks:
             if ebook.tags == []:
                 all_tags["untagged"] += 1
             else:
                 for tag in ebook.tags:
-                    if tag in all_tags.keys():
-                        all_tags[tag] += 1
-                    else:
-                        all_tags[tag] = 1
+                    all_tags[tag] += 1
         return all_tags
