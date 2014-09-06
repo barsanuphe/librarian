@@ -53,8 +53,7 @@ class FakeOpfFile(object):
             all_keys = [el for el in object.__getattribute__(self, "__dict__").keys() if el != "author_aliases"]
             all_keys.extend(METADATA_ALIASES.keys())
             return sorted(all_keys)
-        if name in METADATA_ALIASES.keys():
-            name = METADATA_ALIASES[name]
+        name = METADATA_ALIASES.get(name, name)
         return sanitize(name, object.__getattribute__(self, "__dict__").get(name, ""), object.__getattribute__(self, "author_aliases"))
 
 class OpfFile(object):
@@ -63,6 +62,7 @@ class OpfFile(object):
         object.__setattr__(self, "author_aliases", author_aliases)
         object.__setattr__(self, "tree", etree.parse(self.opf))
         object.__setattr__(self, "metadata_element", self.tree.xpath('/pkg:package/pkg:metadata',namespaces = ns)[0])
+        object.__setattr__(self, "epub_version", self.tree.xpath('/pkg:package',namespaces = ns)[0].get("version"))
         object.__setattr__(self, "has_changed", False)
 
     #TODO: return list when more than one element of type name exists!!
@@ -97,7 +97,7 @@ class OpfFile(object):
         for node in self.metadata_element:
             tag = etree.QName(node.tag)
             short_tag = tag.localname
-            if short_tag == "meta":
+            if short_tag == "meta" and self.epub_version == "2.0":
                 #TODO: test
                 try:
                     metadata_dict[node.get("name").split("calibre:")[1]] = sanitize(node.get("name").split("calibre:")[1], node.get("content"), self.author_aliases)
@@ -113,8 +113,7 @@ class OpfFile(object):
             file_handle.write(etree.tostring(self.tree, pretty_print=True, encoding='utf8', xml_declaration=True).decode("utf8"))
 
     def __getattr__(self, name):
-        if name in METADATA_ALIASES.keys():
-            name = METADATA_ALIASES[name]
+        name = METADATA_ALIASES.get(name, name)
 
         if name not in self.keys:
             return "" # None?
@@ -125,15 +124,27 @@ class OpfFile(object):
         else:
             return sanitize(name, node.text.title(), self.author_aliases)
 
-    def __setattr__(self, name, value):
-        if name in METADATA_ALIASES.keys():
-            name = METADATA_ALIASES[name]
+    def __setattr__(self, name, value, replace = False):
+        name = METADATA_ALIASES.get(name, name)
 
         node = self.get_element(name)
-        if node.text is None: # meta
-            node.set("content", value)
+        if node is None or replace == False:
+            print("Unsupported: Creating new metadata", name, '=', value)
+            if name in ["series", "series_index"]:
+                new_node = etree.Element("meta")
+                new_node.set("name", "calibre:"+name)
+                new_node.set("content", value)
+                self.metadata_element.append(new_node)
+            else:
+                node_tag = etree.QName("http://purl.org/dc/elements/1.1/", name)
+                new_node = etree.Element(node_tag)
+                new_node.text = value
+                self.metadata_element.append(new_node)
         else:
-            node.text = value
+            if node.text is None: # meta
+                node.set("content", value)
+            else:
+                node.text = value
         object.__setattr__(self, "has_changed", True)
         self.save()
 

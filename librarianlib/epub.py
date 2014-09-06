@@ -293,38 +293,40 @@ class Epub(object):
 
     def write_metadata(self, key, value):
         #TODO: check if key can have multiple values!
-        if key in self.metadata.keys:
-            setattr(self.metadata, key, value)
-        else:
-            print("Metadata field ", key, "does not yet exist!")
-            #TODO: if key is still a valid field, set it
+        if key not in self.metadata.keys:
+            print("Adding new metadata field", key)
+        setattr(self.metadata, key, value)
 
     def update_metadata(self, update_list):
         # force metadata refresh
         if not self.metadata.is_opf_open:
             self.open_metadata()
 
-        original = str(self)
+        changes = ""
 
         for part in update_list:
             try:
                 key, value = part.split(":")
-                self.write_metadata(key, value.title())
+                #TODO: get all values for field
+                old = getattr(self.metadata, key)
+                if old != value.title():
+                    #TODO: list of unique fields
+                    self.write_metadata(key, value.title())
+                    changes += "%s  -> %s\n"%(old, value.title())
             except:
+                print("Error writing metadata", part)
                 continue # ignore this part only
 
-        new = str(self)
-        #TODO compare all metadata!
-        if original == new:
+        if changes == "":
             print("No change detected.")
             return # nothing to do
 
         print("Updating epub metadata:")
-        print(original, " -> ", new)
+        print(changes)
 
         answer = input("Confirm update? y/n ").lower()
         if answer == 'y':
-            print("Saving ", new)
+            print("Saving ", str(self))
             self.save_metadata()
         else:
             # refreshing from unmodified epub
