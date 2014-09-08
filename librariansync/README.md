@@ -1,7 +1,7 @@
 ## LibrarianSync
 
 This is the part that generates the Kindle collections from a json file.
-It can be used completely independently of librarian.py, provided the
+It can be used completely independently of librarian, provided the
 json file is correct (see example later) and in the correct location
 (inside the **extensions** folder on the Kindle).
 
@@ -55,7 +55,7 @@ which contains two entries:
 
 ### What it does
 
-After syncing with the main script librarian.py, and if tags are defined in
+After syncing with the main script librarian, and if tags are defined in
 library.yaml for entries, the **extensions** folder on the Kindle should contain
 a file, collections.json.
 
