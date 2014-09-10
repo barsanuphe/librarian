@@ -343,7 +343,7 @@ class Library(object):
         print(" -> Syncing library.")
         cpt = 0
         with concurrent.futures.ThreadPoolExecutor(max_workers = multiprocessing.cpu_count()) as executor:
-            all_sync = { executor.submit(eb.sync_with_kindle, KINDLE_DIR, KINDLE_DOCUMENTS): eb for eb in sorted(ebooks_to_sync, key=lambda x: x.filename)}
+            all_sync = { executor.submit(eb.sync_with_kindle, KINDLE_DOCUMENTS, KINDLE_DIR ): eb for eb in sorted(ebooks_to_sync, key=lambda x: x.filename)}
             for future in concurrent.futures.as_completed(all_sync):
                 ebook = all_sync[future]
                 print(" %.2f%%"%( 100*cpt/len(self.ebooks)), end="\r", flush=True)
@@ -404,9 +404,9 @@ if __name__ == "__main__":
 
 
     group_tagging = parser.add_argument_group('Metadata', 'Display and write epub metadata.')
-    group_tagging.add_argument('--info',            dest='info',            action='store',       metavar="METADATA_FIELD",           nargs='*',  help='Display all or a selection of metadata tags for filtered ebooks.')
-    group_tagging.add_argument('--openlibrary',     dest='openlibrary',     action='store_true',  default = False,                                help='Search OpenLibrary for filtered ebooks.')
-    group_tagging.add_argument('--write-metadata',  dest='write_metadata',  action='store',       metavar="METADATA_FIELD_AND_VALUE", nargs='+',  help='Write one or several field:value metadata.')
+    group_tagging.add_argument('--info',                  dest='info',            action='store',       metavar="METADATA_FIELD",           nargs='*',  help='Display all or a selection of metadata tags for filtered ebooks.')
+    group_tagging.add_argument('--openlibrary',           dest='openlibrary',     action='store_true',  default = False,                                help='Search OpenLibrary for filtered ebooks.')
+    group_tagging.add_argument('-w', '--write-metadata',  dest='write_metadata',  action='store',       metavar="METADATA_FIELD_AND_VALUE", nargs='+',  help='Write one or several field:value metadata.')
 
 
     group_tagging = parser.add_argument_group('Configuration', 'Configuration options.')

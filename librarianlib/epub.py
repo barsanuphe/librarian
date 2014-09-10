@@ -262,25 +262,34 @@ class Epub(object):
         self.was_converted_to_mobi = True
         return True
 
+
     @has_changed
-    def sync_with_kindle(self, mobi_dir, kindle_documents_dir):
-        if not self.was_converted_to_mobi:
+    def sync_with_kindle(self, destination_dir, mobi_dir = None ):
+        if mobi_dir is not None and not self.was_converted_to_mobi:
             self.export_to_mobi(mobi_dir)
 
-        output_filename = os.path.join(kindle_documents_dir, self.exported_filename)
+        if mobi_dir is not None:
+            output_filename = os.path.join(destination_dir, self.exported_filename)
+        else:
+            output_filename = os.path.join(destination_dir, self.filename)
 
         if not os.path.exists( os.path.dirname(output_filename) ):
             print("Creating directory", os.path.dirname(output_filename) )
             os.makedirs( os.path.dirname(output_filename) )
 
         # check if exists and with latest hash
-        if os.path.exists(output_filename) and self.last_synced_hash == self.converted_to_mobi_hash:
-            print("   - Skipping already synced .mobi: ", self.filename)
+        if os.path.exists(output_filename) and \
+               ( (mobi_dir is not None and self.last_synced_hash == self.converted_to_mobi_hash) \
+              or (mobi_dir is None     and self.last_synced_hash == self.current_hash) ):
+            print("   - Skipping already synced ebook: ", self.filename)
             return False
 
         print("   + Syncing: ", self.filename)
         shutil.copy( os.path.join(mobi_dir, self.exported_filename), output_filename)
-        self.last_synced_hash = self.converted_to_mobi_hash
+        if mobi_dir is None:
+            self.last_synced_hash = self.current_hash
+        else:
+            self.last_synced_hash = self.converted_to_mobi_hash
         return True
 
     def info(self, field_list = None):
