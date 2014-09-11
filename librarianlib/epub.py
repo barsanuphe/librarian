@@ -274,21 +274,23 @@ class Epub(object):
             output_filename = os.path.join(destination_dir, self.filename)
 
         if not os.path.exists( os.path.dirname(output_filename) ):
-            print("Creating directory", os.path.dirname(output_filename) )
+            print("Creating directory", os.path.dirname(output_filename), flush=True )
             os.makedirs( os.path.dirname(output_filename) )
 
         # check if exists and with latest hash
         if os.path.exists(output_filename) and \
                ( (mobi_dir is not None and self.last_synced_hash == self.converted_to_mobi_hash) \
               or (mobi_dir is None     and self.last_synced_hash == self.current_hash) ):
-            print("   - Skipping already synced ebook: ", self.filename)
+            print("   - Skipping already synced ebook: ", self.filename, flush=True)
             return False
 
-        print("   + Syncing: ", self.filename)
-        shutil.copy( os.path.join(mobi_dir, self.exported_filename), output_filename)
+        print("   + Syncing: ", self.filename, flush=True)
+
         if mobi_dir is None:
+            shutil.copy( os.path.join(self.library_dir, self.filename), output_filename)
             self.last_synced_hash = self.current_hash
         else:
+            shutil.copy( os.path.join(mobi_dir, self.exported_filename), output_filename)
             self.last_synced_hash = self.converted_to_mobi_hash
         return True
 
