@@ -2,10 +2,11 @@
 #TODO: support for several series?
 #TODO: tags == dc:subject list?
 #TODO: auto-correct option (w/author_aliases) + yaml option confirm_before_write
-#TODO: allow syncing without converting to mobi (--sync --kindle would convert and sync)
 #TODO: try to query google books too
 #TODO: when querying by series, order by series_index
-#TODO: wanted list support for multiple books for each author
-#TODO: build-librariansync-bin should also update confix.xml
+#TODO: option to make library db readable (not by default)
 
 #NOTE: sparklines?
+
+#TODO: sync epub: monothreaded.
+

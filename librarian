@@ -9,6 +9,7 @@ import time, concurrent.futures, multiprocessing, json, argparse
 from librarianlib.epub import Epub, read, not_read, reading
 from librarianlib.ebook_search import *
 from librarianlib.openlibrary_search import OpenLibrarySearch
+from librarianlib.librarian_server import *
 
 if sys.version_info < (3,0,0):
   print("You need python 3.0 or later to run this script.")
@@ -33,6 +34,8 @@ LIBRARY_CONFIG = os.path.join(librarian_dir, "librarian.yaml")
 
 KINDLE_DOCUMENTS_SUBDIR = "library"
 AUTHOR_ALIASES = {}
+IP = "localhost"
+port = 13699
 
 def refresh_global_variables():
     global IMPORT_DIR, IMPORTED_DIR, LIBRARY_DIR, KINDLE_DIR, COLLECTIONS, LIBRARY_ROOT
@@ -76,7 +79,7 @@ class Library(object):
         #configuration
         if os.path.exists(LIBRARY_CONFIG):
             self.config = yaml.load(open(LIBRARY_CONFIG, 'r'))
-            global KINDLE_ROOT, LIBRARY_ROOT, AUTHOR_ALIASES, KINDLE_DOCUMENTS_SUBDIR
+            global KINDLE_ROOT, LIBRARY_ROOT, AUTHOR_ALIASES, KINDLE_DOCUMENTS_SUBDIR, IP, PORT
             try:
                 KINDLE_ROOT = self.config["kindle_root"]
                 LIBRARY_ROOT = self.config["library_root"]
@@ -88,6 +91,10 @@ class Library(object):
             except Exception as err:
                 print("Missing config option: ", err)
                 raise Exception("Invalid configuration file!")
+
+            if "server" in self.config.keys(): #TODO checks
+                IP = self.config["server"]["IP"]
+                PORT = int(self.config["server"]["port"])
 
             if "scrape_root" in self.config.keys():
                 self.scrape_root = self.config["scrape_root"]
@@ -405,6 +412,25 @@ class Library(object):
             print(incomplete_list)
         return found_incomplete
 
+    def serve(self, filtered = [], kindle_sync = True):
+        if filtered == []:
+            ebooks_to_serve = self.ebooks
+        else:
+            ebooks_to_serve = filtered
+
+        if not kindle_sync:
+            allowed = [el.path for el in ebooks_to_serve]
+            local_root = LIBRARY_DIR
+        else:
+            for eb in ebooks_to_serve:
+                eb.export_to_mobi(KINDLE_DIR)
+            allowed = [os.path.join(KINDLE_DIR, el.exported_filename) for el in ebooks_to_serve]
+            local_root = KINDLE_DIR
+
+        print("Serving.")
+        server = LibrarianServer((IP, PORT), LibrarianHandler, allowed, local_root )
+        server.serve_forever()
+
 if __name__ == "__main__":
 
     start = time.perf_counter()
@@ -417,6 +443,7 @@ if __name__ == "__main__":
     group_import_export.add_argument(      '--scrape',      dest='scrape',          action='store_true', default = False, help='scrape for ebooks')
     group_import_export.add_argument('-s', '--sync',        dest='sync',            action='store', const=True,  default = False, nargs='?', metavar = "PATH", help='sync library (or a subset with --filter or --list)')
     group_import_export.add_argument('-k', '--kindle',      dest='kindle',          action='store_true', default = False, help='when syncing, sync to kindle')
+    group_import_export.add_argument(      '--serve',       dest='serve',           action='store_true', default = False, help='serve filtered ebooks over http')
 
     group_tagging = parser.add_argument_group('Tagging', 'Search and tag ebooks. For --list, --filter and --exclude, \
                                               STRING can begin with author:, title:, tag:, series: or progress: for a more precise search.')
@@ -443,8 +470,8 @@ if __name__ == "__main__":
         print("No option selected. Try -h.")
         sys.exit()
 
-    if args.kindle and not args.sync:
-        print("The --kindle option can only modify the --sync option.")
+    if args.kindle and (not args.sync and not args.serve):
+        print("The --kindle option can only modify the --sync or --serve option.")
         sys.exit()
 
     is_not_filtered = (args.filter_ebooks_and is None and args.filter_ebooks_or is None)
@@ -550,6 +577,12 @@ if __name__ == "__main__":
                 else:
                     print("Invalid sync command.")
                     sys.exit()
+
+            if args.serve:
+                if args.kindle:
+                    l.serve(filtered, kindle_sync = True)
+                else:
+                    l.serve(filtered, kindle_sync = False)
 
             l.save_db()
         except Exception as err:
