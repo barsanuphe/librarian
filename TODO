@@ -4,8 +4,9 @@
 #TODO: auto-correct option (w/author_aliases) + yaml option confirm_before_write
 #TODO: try to query google books too
 #TODO: when querying by series, order by series_index
-#TODO: option to make library db readable (not by default)
-
+#TODO: when serving, also send collections + auto update collections
+#TODO: make standalone librarian_server.py
+#TODO: update README with --serve
 #NOTE: sparklines?
 
 #TODO: sync epub: monothreaded.

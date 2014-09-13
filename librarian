@@ -35,7 +35,7 @@ LIBRARY_CONFIG = os.path.join(librarian_dir, "librarian.yaml")
 KINDLE_DOCUMENTS_SUBDIR = "library"
 AUTHOR_ALIASES = {}
 IP = "localhost"
-port = 13699
+PORT = 13699
 
 def refresh_global_variables():
     global IMPORT_DIR, IMPORTED_DIR, LIBRARY_DIR, KINDLE_DIR, COLLECTIONS, LIBRARY_ROOT
@@ -181,14 +181,17 @@ class Library(object):
         print("Database refreshed in %.2fs."%(time.perf_counter() - start))
         return is_incomplete
 
-    def save_db(self):
+    def save_db(self, readable = False):
         data = {}
         # adding ebooks in alphabetical order
         for ebook in sorted(self.ebooks, key=lambda x: x.filename):
             data[ebook.filename] = ebook.to_database_json()
         # dumping in json file
         with open(LIBRARY_DB, "w") as data_file:
-            data_file.write(json.dumps( data, sort_keys=True, indent=2, separators=(',', ': '), ensure_ascii = False))
+            if readable:
+                data_file.write(json.dumps( data, sort_keys=True, indent=2, separators=(',', ': '), ensure_ascii = False))
+            else:
+                data_file.write(json.dumps( data, ensure_ascii = False))
 
     def scrape_dir_for_ebooks(self):
         if self.scrape_root is None:
@@ -461,7 +464,8 @@ if __name__ == "__main__":
     group_tagging.add_argument('-w', '--write-metadata',  dest='write_metadata',  action='store',       metavar="METADATA_FIELD_AND_VALUE", nargs='+',  help='Write one or several field:value metadata.')
 
     group_tagging = parser.add_argument_group('Configuration', 'Configuration options.')
-    group_tagging.add_argument('--config', dest='config', action='store', metavar="CONFIG_FILE", nargs=1, help='Use an alternative configuration file.')
+    group_tagging.add_argument('--config',      dest='config',   action='store',      metavar="CONFIG_FILE", nargs=1, help='Use an alternative configuration file.')
+    group_tagging.add_argument('--readable-db', dest='readable', action='store_true', default=False,                  help='Save the database in somewhat readable form.')
 
     args = parser.parse_args()
 
@@ -584,7 +588,7 @@ if __name__ == "__main__":
                 else:
                     l.serve(filtered, kindle_sync = False)
 
-            l.save_db()
+            l.save_db(args.readable)
         except Exception as err:
             print(err)
             sys.exit(-1)

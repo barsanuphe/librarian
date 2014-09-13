@@ -52,9 +52,9 @@ class LibrarianHandler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     try:
-        library_dir = "/home/barsanuphe/aubergine/musique/ebooks/librarian/books_test/library"
-        allowed = ["/home/barsanuphe/aubergine/musique/ebooks/librarian/books_test/library/A.E. Van Vogt/A.E. Van Vogt (1974) The World of Null-A (n-1).mobi"]
-        server = LibrarianServer(('192.168.15.201', 13698), LibrarianHandler, allowed, library_dir )
+        library_dir = ""
+        allowed = [""]
+        server = LibrarianServer(('IP', port), LibrarianHandler, allowed, library_dir )
         server.serve_forever()
 
     except KeyboardInterrupt:
