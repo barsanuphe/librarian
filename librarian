@@ -367,7 +367,12 @@ class Library(object):
         # sync books / convert to mobi
         print(" -> Syncing library.")
         cpt = 0
-        with concurrent.futures.ThreadPoolExecutor(max_workers = multiprocessing.cpu_count()) as executor:
+        if kindle_sync:
+            num_threads = multiprocessing.cpu_count()
+        else:
+            num_threads = 1 # when syncing epubs, only one thread, to prevent race conditions when creating directories.
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers = num_threads) as executor:
             if kindle_sync:
                 all_sync = { executor.submit(eb.sync_with_kindle, KINDLE_DOCUMENTS, KINDLE_DIR ): eb for eb in sorted(ebooks_to_sync, key=lambda x: x.filename)}
             else:
