@@ -281,11 +281,12 @@ class Library(object):
             # check if book not already in library
             already_in_db = False
             for eb in self.ebooks:
-                if eb.metadata.author == temp_ebook.metadata.author and eb.metadata.title == temp_ebook.metadata.title:
+                if eb.metadata.get_values("author") == temp_ebook.metadata.get_values("author") and \
+                        eb.metadata.get_values("title") == temp_ebook.metadata.get_values("title"):
                     already_in_db = True
                     break
             if already_in_db:
-                print(" -> library already contains an entry for: ", temp_ebook.metadata.author, " - ", temp_ebook.metadata.title, ": ",  ebook )
+                print(" -> library already contains an entry for: ", temp_ebook.metadata.get_values("author")[0], " - ", temp_ebook.metadata.get_values("title")[0], ": ",  ebook )
                 continue
 
             if self.interactive:
@@ -569,7 +570,7 @@ if __name__ == "__main__":
                         ebook.remove_from_collection(tag)
 
             #print('(', read("read"), not_read("not_read"), reading("reading"), ')')
-            for ebook in filtered:
+            for ebook in sorted(filtered, key=lambda x: x.filename):
                 if args.info is None:
                     print(" -> ", ebook)
                     if args.openlibrary:
