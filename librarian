@@ -322,7 +322,7 @@ class Library(object):
             ebooks_to_sync = filtered
         tags_json = {}
         for eb in sorted(ebooks_to_sync, key=lambda x: x.filename):
-            if eb.tags != [""]:
+            if eb.tags != []:
                 tags_json[os.path.join(KINDLE_DOCUMENTS_SUBDIR, eb.exported_filename)] = eb.tags
 
         f = codecs.open(outfile, "w", "utf8")
@@ -435,9 +435,17 @@ class Library(object):
             allowed = [os.path.join(KINDLE_DIR, el.exported_filename) for el in ebooks_to_serve]
             local_root = KINDLE_DIR
 
+        # create partial collections
+        self.update_kindle_collections(COLLECTIONS, filtered)
+
         print("Serving.")
-        server = LibrarianServer((IP, PORT), LibrarianHandler, allowed, local_root )
+        server = LibrarianServer((IP, PORT), LibrarianHandler, allowed, local_root, COLLECTIONS)
         server.serve_forever()
+
+        # removing collections json
+        os.remove(COLLECTIONS)
+
+
 
 if __name__ == "__main__":
 

@@ -5,7 +5,7 @@ from urllib.parse import quote, unquote
 
 
 class LibrarianServer(HTTPServer):
-    def __init__(self, server_address, RequestHandlerClass, allowed, library_dir):
+    def __init__(self, server_address, RequestHandlerClass, allowed, library_dir, collections_json):
         HTTPServer.__init__(self, server_address, RequestHandlerClass)
         self.allowed = allowed
         # to make sure all goes well later when splitting and joining
@@ -13,6 +13,7 @@ class LibrarianServer(HTTPServer):
             library_dir += "/"
         self.allowed_relative = [el.split(library_dir)[1] for el in allowed]
         self.library_dir = library_dir
+        self.collections_json = collections_json
 
 class LibrarianHandler(SimpleHTTPRequestHandler):
 
@@ -25,7 +26,7 @@ class LibrarianHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             text = "|".join(self.server.allowed_relative)
             self.wfile.write(text.encode("utf8"))
-        elif clean_path in self.server.allowed_relative:
+        elif clean_path in self.server.allowed_relative or clean_path == "collections.json":
             super(LibrarianHandler, self).do_GET()
         elif clean_path == "LibrarianServer::shutdown":
             # return response and shutdown the server
@@ -41,9 +42,14 @@ class LibrarianHandler(SimpleHTTPRequestHandler):
             return self.send_error(404,'File Not Found: %s' % clean_path[1:])
 
     def translate_path(self, path):
-        print("Sending %s..."%unquote(self.path[1:], encoding='utf-8'))
-        # add library dir to path to actually retrieve the file
-        return os.path.join(self.server.library_dir, unquote(self.path[1:], encoding='utf-8'))
+        clean_path = unquote(self.path[1:], encoding='utf-8')
+        if clean_path == "collections.json":
+            print("Sending collections...")
+            return self.server.collections_json
+        else:
+            print("Sending %s..."%clean_path)
+            # add library dir to path to actually retrieve the file
+            return os.path.join(self.server.library_dir, clean_path)
 
     def log_message(self, format, *args):
         # muting default output

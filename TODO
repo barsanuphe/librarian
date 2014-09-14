@@ -5,6 +5,7 @@
 #TODO: try to query google books too
 #TODO: when querying by series, order by series_index
 
-#TODO: when serving, also send collections + auto update collections
 #TODO: make standalone librarian_server.py
 #TODO: update README with --serve
+
+#TODO: automatic read/unread/reading collections
