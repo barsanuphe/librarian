@@ -1,6 +1,5 @@
 #TODO: filename template: support for optional parts (ex: "[$s] [#$i]")
 #TODO: support for several series?
-#TODO: tags == dc:subject list?
 #TODO: auto-correct option (w/author_aliases) + yaml option confirm_before_write
 #TODO: try to query google books too
 #TODO: when querying by series, order by series_index
@@ -9,4 +8,4 @@
 #TODO: update README with --serve
 #TODO: documents_subdir in librarian_download ini
 
-#TODO: automatic read/unread/reading collections
+#TODO: tag / reading progress as new "meta" opf metadata

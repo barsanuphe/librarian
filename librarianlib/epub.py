@@ -8,14 +8,14 @@ try:
     init(autoreset=True)
     from colorama import Fore, Back, Style
 
-    def not_read(text):
+    def unread(text):
         return Fore.YELLOW + Style.BRIGHT + text
     def reading(text):
         return Fore.GREEN + Style.BRIGHT  + text
     def read(text):
         return Fore.BLUE + Style.BRIGHT + text
 except:
-    def not_read(text):
+    def unread(text):
         return "** " + text
     def reading(text):
         return ":: " + text
@@ -44,7 +44,7 @@ AUTHORIZED_TEMPLATE_PARTS = {
 
 
 class ReadStatus(Enum):
-    not_read = 0
+    unread = 0
     reading = 1
     read = 2
 
@@ -92,8 +92,8 @@ class Epub(object):
         else:
             str =  "%s (%s) %s %s [ %s ]"%(self.metadata.get_values("author")[0], self.metadata.get_values("year")[0], self.metadata.get_values("title")[0], series_info, ", ".join(self.tags))
 
-        if self.read == ReadStatus.not_read:
-            return not_read(str)
+        if self.read == ReadStatus.unread:
+            return unread(str)
         elif self.read == ReadStatus.reading:
             return reading(str)
         else:

@@ -6,7 +6,7 @@ import os, subprocess, shutil, sys, hashlib, zipfile, traceback
 import xml.dom.minidom, codecs
 import time, concurrent.futures, multiprocessing, json, argparse
 
-from librarianlib.epub import Epub, read, not_read, reading
+from librarianlib.epub import Epub, read, unread, reading
 from librarianlib.ebook_search import *
 from librarianlib.openlibrary_search import OpenLibrarySearch
 from librarianlib.librarian_server import *
@@ -324,8 +324,10 @@ class Library(object):
             ebooks_to_sync = filtered
         tags_json = {}
         for eb in sorted(ebooks_to_sync, key=lambda x: x.filename):
+            relative_path = os.path.join(KINDLE_DOCUMENTS_SUBDIR, eb.exported_filename)
+            tags_json[relative_path] = [eb.read.name]
             if eb.tags != []:
-                tags_json[os.path.join(KINDLE_DOCUMENTS_SUBDIR, eb.exported_filename)] = eb.tags
+                tags_json[relative_path].append(eb.tags)
 
         f = codecs.open(outfile, "w", "utf8")
         f.write(json.dumps(tags_json, sort_keys=True, indent=2, separators=(',', ': '), ensure_ascii = False))
@@ -471,7 +473,7 @@ if __name__ == "__main__":
     group_tagging.add_argument('-t', '--add-tag',       dest='add_tag',             action='store', nargs="+", metavar="TAG",                   help='tag listed ebooks in library')
     group_tagging.add_argument('-d', '--delete-tag',    dest='delete_tag',          action='store', nargs="+", metavar="TAG",                   help='remove tag(s) from listed ebooks in library')
     group_tagging.add_argument('-c', '--collections',   dest='collections',         action='store', nargs='?', metavar="COLLECTION", const="",  help='list all tags or ebooks with a given tag or "untagged"')
-    group_tagging.add_argument(      '--progress',      dest='read',                choices = ['read', 'reading', 'not_read'],                  help='Set filtered ebooks as read.')
+    group_tagging.add_argument(      '--progress',      dest='read',                choices = ['read', 'reading', 'unread'],                    help='Set filtered ebooks as read.')
 
     group_tagging = parser.add_argument_group('Metadata', 'Display and write epub metadata.')
     group_tagging.add_argument(      '--info',            dest='info',            action='store',       metavar="METADATA_FIELD",           nargs='*',  help='Display all or a selection of metadata tags for filtered ebooks.')
