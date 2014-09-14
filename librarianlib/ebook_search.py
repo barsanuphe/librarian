@@ -57,7 +57,7 @@ def match_this(ebook, value, field = None, exact = False):
         # search everywhere
         result = False # OR search
         for key in ebook.metadata.keys:
-            field_value = ebook.metadata.get_values(key)
+            field_value = [el for el in ebook.metadata.get_values(key) if el is not None]
             is_list = (type(field_value) == list)
             if exact:
                 result = result \

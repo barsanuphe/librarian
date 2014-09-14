@@ -7,5 +7,6 @@
 
 #TODO: make standalone librarian_server.py
 #TODO: update README with --serve
+#TODO: documents_subdir in librarian_download ini
 
 #TODO: automatic read/unread/reading collections

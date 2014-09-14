@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function #so that parsing this with python2 does not raise SyntaxError
-import os, subprocess, shutil, sys, hashlib, zipfile
+import os, subprocess, shutil, sys, hashlib, zipfile, traceback
 import xml.dom.minidom, codecs
 import time, concurrent.futures, multiprocessing, json, argparse
 
@@ -156,8 +156,9 @@ class Library(object):
             all_ebooks_in_library_dir.extend([os.path.join(root, el) for el in files if el.lower().endswith(".epub")])
 
         cpt = 1
-        with concurrent.futures.ThreadPoolExecutor(max_workers = multiprocessing.cpu_count()) as executor:
-            future_to_ebook = { executor.submit(self._refresh_ebook, path, old_db): path for path in all_ebooks_in_library_dir}
+        num_threads = 1 #multiprocessing.cpu_count()
+        with concurrent.futures.ThreadPoolExecutor(max_workers = num_threads) as executor:
+            future_to_ebook = { executor.submit(self._refresh_ebook, path, old_db): path for path in sorted(all_ebooks_in_library_dir)}
             for future in concurrent.futures.as_completed(future_to_ebook):
                 if future.result() is not None:
                     print(" %.2f%%"%( 100*cpt/len(all_ebooks_in_library_dir)), end="\r", flush=True)
@@ -604,6 +605,7 @@ if __name__ == "__main__":
             l.save_db(args.readable)
         except Exception as err:
             print(err)
+            traceback.print_exc()
             sys.exit(-1)
 
         print("Everything done in %.2fs."%(time.perf_counter() - start))

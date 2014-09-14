@@ -79,6 +79,9 @@ class OpfFile(object):
 
     def parse(self):
         for node in self.metadata_element:
+            # passing comments
+            if node.tag == etree.Comment:
+                continue
             tag = etree.QName(node.tag)
             short_tag = tag.localname
             if short_tag == "meta" and self.epub_version == "2.0":
