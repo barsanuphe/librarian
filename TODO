@@ -5,7 +5,6 @@
 #TODO: when querying by series, order by series_index
 
 #TODO: make standalone librarian_server.py
-#TODO: update README with --serve
 #TODO: documents_subdir in librarian_download ini
 
 #TODO: tag / reading progress as new "meta" opf metadata

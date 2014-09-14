@@ -51,7 +51,32 @@ which contains two entries:
 - *Export current collections* :
     generates exported_collections.json in the **extensions** folder from current
     collections.
+- *Download from librarian*:
+    If *librarian* is serving ebooks, retrieves the list of available files,
+    downloads them all, retrieves the collections.json for the new ebooks, and
+    automatically updates collections.
 - *Delete all collections*
+
+
+### Configuration
+
+*LibrarianSync* only requires configuration when used to download ebooks served
+over http by *librarian*.
+
+In the **extensions/librariansync** folder, there should be a *librarian_download.ini*
+file such as:
+
+    [server]
+    IP = 192.168.0.5|192.168.15.201
+    port = 13698
+
+
+*IP* is a |-separated list of IP addresses.
+The IP address should be the same as the one given in the *librarian* configuration.
+
+When more than one address is given, *LibrarianSync* tries to connect to each one.
+The idea is to be able to download using Wi-Fi or USBNetwork, so the list of IP
+addresses can define serveral interfaces of the same server, or different servers.
 
 ### What it does
 
@@ -81,6 +106,13 @@ backed up, modified, and used to *rebuild collections* (if renamed
 At the same time, another json file is written, to be used with the Calibre
 Kindle plugin.
 
+When *downloading from librarian*, it connects (using Wi-Fi or USBNetwork, depending
+on your configuration) to the http server temporarily created by *librarian*,
+downloads the available ebooks, and updates the collections using information given
+by *librarian*.
+*LibrarianSync* notifies *librarian* when it is done, and *librarian* shuts down
+its server automatically.
+
 Always allow for a few seconds for the Kindle database and interface to reflect the
 changes made.
 
@@ -94,4 +126,3 @@ list of collection names.
         "library/Alexandre Dumas/Alexandre Dumas (2004) Vingt Ans Après.mobi": ["gutenberg","french","not read yet"],
         "library/Alexandre Dumas/Alexandre Dumas (2011) Le Comte De Monte-Cristo.mobi": ["gutenberg","french","already read"]
     }
-
