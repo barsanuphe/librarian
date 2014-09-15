@@ -578,7 +578,7 @@ if __name__ == "__main__":
                     if args.openlibrary:
                         s = OpenLibrarySearch()
                         result = s.search(ebook)
-                        print(result)
+                        result.compare_to_source(ebook)
                 else:
                     if args.info == []:
                         print(ebook.info())

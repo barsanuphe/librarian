@@ -1,5 +1,5 @@
 import requests, json
-from .epub import Epub
+from .epub import Epub, unread, reading, read
 
 class SearchResult(object):
     def __init__(self, hit, description):
@@ -11,6 +11,25 @@ class SearchResult(object):
     def __str__(self):
         return "  Author: %s\n  Title: %s\n  First published: %s\n  Description: %s"%(self.author, self.title, self.year, self.description)
 
+    def _diff(self, field, ebook):
+        modified = "%s:\n    %s -> %s"
+        values = ebook.metadata.get_values(field)
+        if values == []:
+            values = ["(not found)"]
+        if ",".join(values) != getattr(self, field):
+            print(modified%(reading(field.title()), unread(",".join(values)), read(str(getattr(self, field)))))
+            return True
+        return False
+
+    def compare_to_source(self, ebook):
+        a = self._diff("author", ebook)
+        t = self._diff("title", ebook)
+        y = self._diff("year", ebook)
+        d = self._diff("description", ebook)
+        return (a or t or y or d)
+
+    def copy_to_source(self, ebook):
+        pass #TODO
 
 class OpenLibrarySearch(object):
 
