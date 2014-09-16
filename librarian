@@ -1,22 +1,33 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from __future__ import print_function #so that parsing this with python2 does not raise SyntaxError
-import os, subprocess, shutil, sys, hashlib, zipfile, traceback
-import xml.dom.minidom, codecs
-import time, concurrent.futures, multiprocessing, json, argparse
+# so that parsing this with python2 does not raise SyntaxError
+from __future__ import print_function
 
-from librarianlib.epub import Epub, read, unread, reading
+import os
+import subprocess
+import shutil
+import sys
+import hashlib
+import traceback
+import codecs
+import time
+import concurrent.futures
+import multiprocessing
+import json
+import argparse
+
+from librarianlib.epub import Epub
 from librarianlib.ebook_search import *
 from librarianlib.openlibrary_search import OpenLibrarySearch
 from librarianlib.librarian_server import *
 
-if sys.version_info < (3,0,0):
-  print("You need python 3.0 or later to run this script.")
-  sys.exit(-1)
+if sys.version_info < (3, 0, 0):
+    print("You need python 3.0 or later to run this script.")
+    sys.exit(-1)
 
 try:
-    assert subprocess.call(["ebook-convert","--version"], stdout=subprocess.DEVNULL) == 0
+    assert subprocess.call(["ebook-convert", "--version"], stdout=subprocess.DEVNULL) == 0
 except AssertionError as err:
     print("Calibre must be installed for epub -> mobi conversions!")
     sys.exit(-1)
@@ -37,14 +48,15 @@ AUTHOR_ALIASES = {}
 IP = "localhost"
 PORT = 13699
 
+
 def refresh_global_variables():
     global IMPORT_DIR, IMPORTED_DIR, LIBRARY_DIR, KINDLE_DIR, COLLECTIONS, LIBRARY_ROOT
     global KINDLE_DIR, KINDLE_DOCUMENTS, KINDLE_EXTENSIONS, KINDLE_ROOT
-    IMPORT_DIR = os.path.join(LIBRARY_ROOT,"import")
-    LIBRARY_DIR = os.path.join(LIBRARY_ROOT,"library")
-    IMPORTED_DIR = os.path.join(LIBRARY_ROOT,"imported")
-    KINDLE_DIR = os.path.join(LIBRARY_ROOT,"kindle")
-    COLLECTIONS = os.path.join(LIBRARY_ROOT,"collections.json")
+    IMPORT_DIR = os.path.join(LIBRARY_ROOT, "import")
+    LIBRARY_DIR = os.path.join(LIBRARY_ROOT, "library")
+    IMPORTED_DIR = os.path.join(LIBRARY_ROOT, "imported")
+    KINDLE_DIR = os.path.join(LIBRARY_ROOT, "kindle")
+    COLLECTIONS = os.path.join(LIBRARY_ROOT, "collections.json")
     KINDLE_DOCUMENTS = os.path.join(KINDLE_ROOT, "documents", KINDLE_DOCUMENTS_SUBDIR)
     KINDLE_EXTENSIONS = os.path.join(KINDLE_ROOT, "extensions")
 
@@ -57,7 +69,9 @@ def refresh_global_variables():
     if not os.path.exists(KINDLE_DIR):
         os.makedirs(KINDLE_DIR)
 
+
 class Library(object):
+
     def __init__(self):
         self.ebooks = []
         self.backup_imported_ebooks = True
@@ -76,7 +90,7 @@ class Library(object):
                 epub.close_metadata()
 
     def open_config(self):
-        #configuration
+        # configuration
         if os.path.exists(LIBRARY_CONFIG):
             self.config = yaml.load(open(LIBRARY_CONFIG, 'r'))
             global KINDLE_ROOT, LIBRARY_ROOT, AUTHOR_ALIASES, KINDLE_DOCUMENTS_SUBDIR, IP, PORT
@@ -85,14 +99,14 @@ class Library(object):
                 LIBRARY_ROOT = self.config["library_root"]
 
                 if "kindle_documents_subdir" in self.config.keys():
-                    KINDLE_DOCUMENTS_SUBDIR = self.config["kindle_documents_subdir"] #TODO check if valid name
+                    KINDLE_DOCUMENTS_SUBDIR = self.config["kindle_documents_subdir"]  # TODO check if valid name
 
                 refresh_global_variables()
             except Exception as err:
                 print("Missing config option: ", err)
                 raise Exception("Invalid configuration file!")
 
-            if "server" in self.config.keys(): #TODO checks
+            if "server" in self.config.keys():  # TODO checks
                 IP = self.config["server"]["IP"]
                 PORT = int(self.config["server"]["port"])
 
@@ -110,7 +124,7 @@ class Library(object):
         yaml.dump(self.config, open(LIBRARY_CONFIG, 'w'), indent=4, default_flow_style=False, allow_unicode=True)
 
     def _load_ebook(self, everything, filename):
-        if not "path" in everything[filename].keys():
+        if "path" not in everything[filename].keys():
             return False, None
         eb = Epub(everything[filename]["path"], LIBRARY_DIR, AUTHOR_ALIASES, self.ebook_filename_template)
         return eb.load_from_database_json(everything[filename], filename), eb
@@ -121,13 +135,13 @@ class Library(object):
             start = time.perf_counter()
             everything = json.load(open(LIBRARY_DB, 'r'))
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers = multiprocessing.cpu_count()) as executor:
-                future_to_ebook = { executor.submit(self._load_ebook, everything, filename): filename for filename in everything.keys()}
+            with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+                future_to_ebook = {executor.submit(self._load_ebook, everything, filename): filename for filename in everything.keys()}
                 for future in concurrent.futures.as_completed(future_to_ebook):
                     success, ebook = future.result()
                     if success:
                         self.ebooks.append(ebook)
-            print("Database opened in %.2fs: loaded %s ebooks."%( (time.perf_counter() - start), len(self.ebooks) ))
+            print("Database opened in %.2fs: loaded %s ebooks." % ((time.perf_counter() - start), len(self.ebooks)))
         else:
             print("No DB, refresh!")
 
@@ -139,7 +153,7 @@ class Library(object):
                 eb.open_metadata()
                 return eb
         if not is_already_in_db:
-            eb = Epub( full_path, LIBRARY_DIR, AUTHOR_ALIASES, self.ebook_filename_template )
+            eb = Epub(full_path, LIBRARY_DIR, AUTHOR_ALIASES, self.ebook_filename_template)
             eb.open_metadata()
             print(" ->  NEW EBOOK: ", eb)
             return eb
@@ -156,33 +170,34 @@ class Library(object):
             all_ebooks_in_library_dir.extend([os.path.join(root, el) for el in files if el.lower().endswith(".epub")])
 
         cpt = 1
-        num_threads = 1 #multiprocessing.cpu_count()
-        with concurrent.futures.ThreadPoolExecutor(max_workers = num_threads) as executor:
-            future_to_ebook = { executor.submit(self._refresh_ebook, path, old_db): path for path in sorted(all_ebooks_in_library_dir)}
+        num_threads = 1  # multiprocessing.cpu_count()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
+            future_to_ebook = {executor.submit(self._refresh_ebook, path, old_db): path for path in sorted(all_ebooks_in_library_dir)}
             for future in concurrent.futures.as_completed(future_to_ebook):
                 if future.result() is not None:
-                    print(" %.2f%%"%( 100*cpt/len(all_ebooks_in_library_dir)), end="\r", flush=True)
+                    print(" %.2f%%" % (100*cpt/len(all_ebooks_in_library_dir)), end="\r", flush=True)
                     cpt += 1
-                    self.ebooks.append( future.result() )
+                    self.ebooks.append(future.result())
 
         # not multithreaded to avoir concurrent folder creation
         for eb in self.ebooks:
             eb.rename_from_metadata()
 
-        to_delete = [ eb for eb in old_db if eb not in self.ebooks]
+        to_delete = [eb for eb in old_db if eb not in self.ebooks]
         for eb in to_delete:
-           print(" -> DELETED EBOOK: ", eb)
+            print(" -> DELETED EBOOK: ", eb)
 
         # remove empty dirs in LIBRARY_DIR
         for root, dirs, files in os.walk(LIBRARY_DIR, topdown=False):
-            for dir in [os.path.join(root, el) for el in dirs if os.listdir( os.path.join(root, el)) == []]:
+            for dir in [os.path.join(root, el) for el in dirs if
+                        os.listdir(os.path.join(root, el)) == []]:
                 os.rmdir(dir)
 
         is_incomplete = self.list_incomplete_metadata()
-        print("Database refreshed in %.2fs."%(time.perf_counter() - start))
+        print("Database refreshed in %.2fs." % (time.perf_counter() - start))
         return is_incomplete
 
-    def save_db(self, readable = False):
+    def save_db(self, readable=False):
         data = {}
         # adding ebooks in alphabetical order
         for ebook in sorted(self.ebooks, key=lambda x: x.filename):
@@ -190,9 +205,9 @@ class Library(object):
         # dumping in json file
         with open(LIBRARY_DB, "w") as data_file:
             if readable:
-                data_file.write(json.dumps( data, sort_keys=True, indent=2, separators=(',', ': '), ensure_ascii = False))
+                data_file.write(json.dumps(data, sort_keys=True, indent=2, separators=(',', ': '), ensure_ascii=False))
             else:
-                data_file.write(json.dumps( data, ensure_ascii = False))
+                data_file.write(json.dumps(data, ensure_ascii=False))
 
     def scrape_dir_for_ebooks(self):
         if self.scrape_root is None:
@@ -201,7 +216,7 @@ class Library(object):
 
         start = time.perf_counter()
         all_ebooks_in_scrape_dir = []
-        print("Finding ebooks in %s..."%self.scrape_root)
+        print("Finding ebooks in %s..." % self.scrape_root)
         for root, dirs, files in os.walk(self.scrape_root):
             all_ebooks_in_scrape_dir.extend([os.path.join(root, el) for el in files if el.lower().endswith(".epub") or el.lower().endswith(".mobi")])
 
@@ -216,20 +231,20 @@ class Library(object):
                     filtered_ebooks_in_scrape_dir.append(ebook)
 
         if len(filtered_ebooks_in_scrape_dir) == 0:
-           print("Nothing to scrape.")
-           return False
+            print("Nothing to scrape.")
+            return False
         else:
-           print("Scraping ", self.scrape_root)
+            print("Scraping ", self.scrape_root)
 
         for ebook in filtered_ebooks_in_scrape_dir:
             print(" -> Scraping ", os.path.basename(ebook))
-            shutil.copyfile(ebook, os.path.join(IMPORT_DIR, os.path.basename(ebook) ) )
+            shutil.copyfile(ebook, os.path.join(IMPORT_DIR, os.path.basename(ebook)))
 
-        print("Scraped ebooks in %.2fs."%(time.perf_counter() - start))
+        print("Scraped ebooks in %.2fs." % (time.perf_counter() - start))
         return True
 
     def _convert_to_epub_before_importing(self, mobi):
-        if not os.path.exists(mobi.replace(".mobi",".epub")):
+        if not os.path.exists(mobi.replace(".mobi", ".epub")):
             print("   + Converting to .epub: ", mobi)
             return subprocess.call(['ebook-convert', mobi, mobi.replace(".mobi", ".epub"), "--output-profile", "kindle_pw"], stdout=subprocess.DEVNULL)
         else:
@@ -239,26 +254,26 @@ class Library(object):
         # multithreaded conversion to epub before import, if necessary
         cpt = 1
         all_mobis = [os.path.join(IMPORT_DIR, el) for el in os.listdir(IMPORT_DIR) if el.endswith(".mobi")]
-        with concurrent.futures.ThreadPoolExecutor(max_workers = multiprocessing.cpu_count()) as executor:
-            future_epubs = { executor.submit(self._convert_to_epub_before_importing, mobi): mobi for mobi in all_mobis}
+        with concurrent.futures.ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+            future_epubs = {executor.submit(self._convert_to_epub_before_importing, mobi): mobi for mobi in all_mobis}
             for future in concurrent.futures.as_completed(future_epubs):
                 if future.result() == 0:
-                    print(" %.2f%%"%( 100*cpt/len(all_mobis)), end="\r", flush=True)
+                    print(" %.2f%%" % (100*cpt/len(all_mobis)), end="\r", flush=True)
                     cpt += 1
                 else:
                     raise Exception("Error converting to epub!")
 
         all_ebooks = [el for el in os.listdir(IMPORT_DIR) if el.endswith(".epub")]
         if len(all_ebooks) == 0:
-           print("Nothing new to import.")
-           return False
+            print("Nothing new to import.")
+            return False
         else:
-           print("Importing.")
+            print("Importing.")
 
         all_already_imported_ebooks = [el for el in os.listdir(IMPORTED_DIR) if el.endswith(".epub")]
         already_imported_hashes = []
         for eb in all_already_imported_ebooks:
-           already_imported_hashes.append( hashlib.sha1(open(os.path.join(IMPORTED_DIR, eb), 'rb').read()).hexdigest() )
+            already_imported_hashes.append(hashlib.sha1(open(os.path.join(IMPORTED_DIR, eb), 'rb').read()).hexdigest())
 
         start = time.perf_counter()
         imported_count = 0
@@ -268,14 +283,14 @@ class Library(object):
             # check for duplicate hash
             new_hash = hashlib.sha1(open(ebook_candidate_full_path, 'rb').read()).hexdigest()
             if new_hash in already_imported_hashes:
-                print(" -> skipping already imported: ",  ebook )
+                print(" -> skipping already imported: ", ebook)
                 continue
 
             # check for complete metadata
             temp_ebook = Epub(ebook_candidate_full_path, LIBRARY_DIR, AUTHOR_ALIASES, self.ebook_filename_template)
             temp_ebook.open_metadata()
             if not temp_ebook.metadata.is_complete:
-                print(" -> skipping ebook with incomplete metadata: ",  ebook )
+                print(" -> skipping ebook with incomplete metadata: ", ebook)
                 continue
 
             # check if book not already in library
@@ -286,38 +301,40 @@ class Library(object):
                     already_in_db = True
                     break
             if already_in_db:
-                print(" -> library already contains an entry for: ", temp_ebook.metadata.get_values("author")[0], " - ", temp_ebook.metadata.get_values("title")[0], ": ",  ebook )
+                print(" -> library already contains an entry for: ",
+                      temp_ebook.metadata.get_values("author")[0],
+                      " - ", temp_ebook.metadata.get_values("title")[0],
+                      ": ", ebook)
                 continue
 
             if self.interactive:
-                print("About to import: %s"%str(temp_ebook) )
+                print("About to import: %s" % str(temp_ebook))
                 answer = input("Confirm? \ny/n? ")
                 if answer.lower() == "n":
-                    print(" -> skipping ebook ",  ebook )
+                    print(" -> skipping ebook ", ebook)
                     continue
 
             # if all checks are ok, importing
-            print(" ->",  ebook )
+            print(" ->", ebook)
             # backup
             if self.backup_imported_ebooks:
                 # backup original mobi version if it exists
                 if os.path.exists(ebook_candidate_full_path.replace(".epub", ".mobi")):
-                    shutil.move( ebook_candidate_full_path.replace(".epub", ".mobi"), os.path.join(IMPORTED_DIR, ebook.replace(".epub", ".mobi") ) )
-                shutil.copyfile( ebook_candidate_full_path, os.path.join(IMPORTED_DIR, ebook ) )
+                    shutil.move(ebook_candidate_full_path.replace(".epub", ".mobi"), os.path.join(IMPORTED_DIR, ebook.replace(".epub", ".mobi")))
+                shutil.copyfile(ebook_candidate_full_path, os.path.join(IMPORTED_DIR, ebook))
             # import
-            shutil.move( ebook_candidate_full_path, os.path.join(LIBRARY_DIR, ebook))
-            imported_count +=1
-        print("Imported ebooks in %.2fs."%(time.perf_counter() - start))
+            shutil.move(ebook_candidate_full_path, os.path.join(LIBRARY_DIR, ebook))
+            imported_count += 1
+        print("Imported ebooks in %.2fs." % (time.perf_counter() - start))
 
         if imported_count != 0:
             return True
         else:
             return False
 
-    def update_kindle_collections(self, outfile, filtered = []):
+    def update_kindle_collections(self, outfile, filtered=[]):
         # generates the json file that is used
         # by the kual script in librariansync/
-        #print("Building kindle collections from tags.")
         if filtered == []:
             ebooks_to_sync = self.ebooks
         else:
@@ -330,10 +347,10 @@ class Library(object):
                 tags_json[relative_path].append(eb.tags)
 
         f = codecs.open(outfile, "w", "utf8")
-        f.write(json.dumps(tags_json, sort_keys=True, indent=2, separators=(',', ': '), ensure_ascii = False))
+        f.write(json.dumps(tags_json, sort_keys=True, indent=2, separators=(',', ': '), ensure_ascii=False))
         f.close()
 
-    def sync_with_kindle(self, filtered = [], kindle_sync = True, destination_dir = None):
+    def sync_with_kindle(self, filtered=[], kindle_sync=True, destination_dir=None):
         if filtered == []:
             ebooks_to_sync = self.ebooks
         else:
@@ -366,7 +383,7 @@ class Library(object):
         print(" -> Listing existing ebooks.")
         all_ebooks = []
         for root, dirs, files in os.walk(output_dir):
-            all_ebooks.extend( [os.path.join(root, file) for file in files if os.path.splitext(file)[1] == file_type] )
+            all_ebooks.extend([os.path.join(root, file) for file in files if os.path.splitext(file)[1] == file_type])
 
         # sync books / convert to mobi
         print(" -> Syncing library.")
@@ -374,24 +391,24 @@ class Library(object):
         if kindle_sync:
             num_threads = multiprocessing.cpu_count()
         else:
-            num_threads = 1 # when syncing epubs, only one thread, to prevent race conditions when creating directories.
+            num_threads = 1  # when syncing epubs, only one thread, to prevent race conditions when creating directories.
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers = num_threads) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
             if kindle_sync:
-                all_sync = { executor.submit(eb.sync_with_kindle, KINDLE_DOCUMENTS, KINDLE_DIR ): eb for eb in sorted(ebooks_to_sync, key=lambda x: x.filename)}
+                all_sync = {executor.submit(eb.sync_with_kindle, KINDLE_DOCUMENTS, KINDLE_DIR): eb for eb in sorted(ebooks_to_sync, key=lambda x: x.filename)}
             else:
-                all_sync = { executor.submit(eb.sync_with_kindle, destination_dir,  None       ): eb for eb in sorted(ebooks_to_sync, key=lambda x: x.filename)}
+                all_sync = {executor.submit(eb.sync_with_kindle, destination_dir, None): eb for eb in sorted(ebooks_to_sync, key=lambda x: x.filename)}
             for future in concurrent.futures.as_completed(all_sync):
                 ebook = all_sync[future]
-                print(" %.2f%%"%( 100*cpt/len(self.ebooks)), end="\r", flush=True)
+                print(" %.2f%%" % (100*cpt/len(self.ebooks)), end="\r", flush=True)
                 cpt += 1
                 # remove ebook from the list of previously exported ebooks
                 if kindle_sync:
                     if os.path.join(output_dir, ebook.exported_filename) in all_ebooks:
-                        all_ebooks.remove( os.path.join(output_dir, ebook.exported_filename) )
+                        all_ebooks.remove(os.path.join(output_dir, ebook.exported_filename))
                 else:
                     if os.path.join(output_dir, ebook.filename) in all_ebooks:
-                        all_ebooks.remove( os.path.join(output_dir, ebook.filename) )
+                        all_ebooks.remove(os.path.join(output_dir, ebook.filename))
 
         # delete mobis on kindle that are not in library anymore
         print(" -> Removing obsolete ebooks.")
@@ -401,7 +418,7 @@ class Library(object):
 
         # remove empty dirs in KINDLE_DOCUMENTS
         for root, dirs, files in os.walk(output_dir, topdown=False):
-            for dir in [os.path.join(root, el) for el in dirs if os.listdir( os.path.join(root, el)) == []]:
+            for dir in [os.path.join(root, el) for el in dirs if os.listdir(os.path.join(root, el)) == []]:
                 os.rmdir(dir)
 
         # sync collections.json
@@ -410,7 +427,7 @@ class Library(object):
             self.update_kindle_collections(COLLECTIONS, filtered)
             shutil.copy(COLLECTIONS, KINDLE_EXTENSIONS)
 
-        print("Library synced in %.2fs."%(time.perf_counter() - start))
+        print("Library synced in %.2fs." % (time.perf_counter() - start))
 
     def list_incomplete_metadata(self):
         found_incomplete = False
@@ -418,13 +435,13 @@ class Library(object):
         for eb in self.ebooks:
             if not eb.metadata.is_complete:
                 found_incomplete = True
-                incomplete_list += " -> %s\n"%eb.path
+                incomplete_list += " -> %s\n" % eb.path
         if found_incomplete:
             print("The following ebooks have incomplete metadata:")
             print(incomplete_list)
         return found_incomplete
 
-    def serve(self, filtered = [], kindle_sync = True):
+    def serve(self, filtered=[], kindle_sync=True):
         if filtered == []:
             ebooks_to_serve = self.ebooks
         else:
@@ -450,7 +467,6 @@ class Library(object):
         os.remove(COLLECTIONS)
 
 
-
 if __name__ == "__main__":
 
     start = time.perf_counter()
@@ -458,12 +474,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Librarian. A very early version of it.')
 
     group_import_export = parser.add_argument_group('Library management', 'Import, analyze, and sync with Kindle.')
-    group_import_export.add_argument('-i', '--import',      dest='import_ebooks',   action='store_true', default = False, help='import ebooks')
-    group_import_export.add_argument('-r', '--refresh',     dest='refresh',         action='store_true', default = False, help='refresh library')
-    group_import_export.add_argument(      '--scrape',      dest='scrape',          action='store_true', default = False, help='scrape for ebooks')
-    group_import_export.add_argument('-s', '--sync',        dest='sync',            action='store', const=True,  default = False, nargs='?', metavar = "PATH", help='sync library (or a subset with --filter or --list)')
-    group_import_export.add_argument('-k', '--kindle',      dest='kindle',          action='store_true', default = False, help='when syncing, sync to kindle')
-    group_import_export.add_argument(      '--serve',       dest='serve',           action='store_true', default = False, help='serve filtered ebooks over http')
+    group_import_export.add_argument('-i', '--import',      dest='import_ebooks',   action='store_true', default=False, help='import ebooks')
+    group_import_export.add_argument('-r', '--refresh',     dest='refresh',         action='store_true', default=False, help='refresh library')
+    group_import_export.add_argument(      '--scrape',      dest='scrape',          action='store_true', default=False, help='scrape for ebooks')
+    group_import_export.add_argument('-s', '--sync',        dest='sync',            action='store', const=True,  default=False, nargs='?', metavar="PATH", help='sync library (or a subset with --filter or --list)')
+    group_import_export.add_argument('-k', '--kindle',      dest='kindle',          action='store_true', default=False, help='when syncing, sync to kindle')
+    group_import_export.add_argument(      '--serve',       dest='serve',           action='store_true', default=False, help='serve filtered ebooks over http')
 
     group_tagging = parser.add_argument_group('Tagging', 'Search and tag ebooks. For --list, --filter and --exclude, \
                                               STRING can begin with author:, title:, tag:, series: or progress: for a more precise search.')
@@ -473,11 +489,11 @@ if __name__ == "__main__":
     group_tagging.add_argument('-t', '--add-tag',       dest='add_tag',             action='store', nargs="+", metavar="TAG",                   help='tag listed ebooks in library')
     group_tagging.add_argument('-d', '--delete-tag',    dest='delete_tag',          action='store', nargs="+", metavar="TAG",                   help='remove tag(s) from listed ebooks in library')
     group_tagging.add_argument('-c', '--collections',   dest='collections',         action='store', nargs='?', metavar="COLLECTION", const="",  help='list all tags or ebooks with a given tag or "untagged"')
-    group_tagging.add_argument(      '--progress',      dest='read',                choices = ['read', 'reading', 'unread'],                    help='Set filtered ebooks as read.')
+    group_tagging.add_argument(      '--progress',      dest='read',                choices=['read', 'reading', 'unread'],                    help='Set filtered ebooks as read.')
 
     group_tagging = parser.add_argument_group('Metadata', 'Display and write epub metadata.')
     group_tagging.add_argument(      '--info',            dest='info',            action='store',       metavar="METADATA_FIELD",           nargs='*',  help='Display all or a selection of metadata tags for filtered ebooks.')
-    group_tagging.add_argument(      '--openlibrary',     dest='openlibrary',     action='store_true',  default = False,                                help='Search OpenLibrary for filtered ebooks.')
+    group_tagging.add_argument(      '--openlibrary',     dest='openlibrary',     action='store_true',  default=False,                                  help='Search OpenLibrary for filtered ebooks.')
     group_tagging.add_argument('-w', '--write-metadata',  dest='write_metadata',  action='store',       metavar="METADATA_FIELD_AND_VALUE", nargs='+',  help='Write one or several field:value metadata.')
 
     group_tagging = parser.add_argument_group('Configuration', 'Configuration options.')
@@ -492,15 +508,23 @@ if __name__ == "__main__":
         sys.exit()
 
     if args.kindle and (not args.sync and not args.serve):
-        print("The --kindle option can only modify the --sync or --serve option.")
+        print("The --kindle option can only modify the --sync or"
+              " --serve option.")
         sys.exit()
 
-    is_not_filtered = (args.filter_ebooks_and is None and args.filter_ebooks_or is None)
-    if is_not_filtered and (args.filter_exclude is not None or args.info is not None) :
-        print("The --exclude/--info options can only be used with either --list or --filter.")
+    is_not_filtered = (args.filter_ebooks_and is None and
+                       args.filter_ebooks_or is None)
+    if is_not_filtered and \
+       (args.filter_exclude is not None or args.info is not None):
+        print("The --exclude/--info options can only be used with --list"
+              " or --filter.")
         sys.exit()
-    if (args.add_tag is not None or args.delete_tag is not None) and (args.filter_ebooks_and is None or args.filter_ebooks_and == []) and (args.filter_ebooks_or is None or args.filter_ebooks_or == []) :
-        print("Tagging all ebooks, or removing a tag from all ebooks, arguably makes no sense. Use the --list/--filter options to filter among the library.")
+    if (args.add_tag is not None or args.delete_tag is not None) and \
+       (args.filter_ebooks_and is None or args.filter_ebooks_and == []) and \
+       (args.filter_ebooks_or is None or args.filter_ebooks_or == []):
+        print("Tagging all ebooks, or removing a tag from all ebooks, arguably"
+              " makes no sense. Use the --list/--filter options to filter"
+              " the library.")
         sys.exit()
 
     if args.config is not None:
@@ -512,7 +536,6 @@ if __name__ == "__main__":
             config_filename = os.path.join(librarian_dir, config_filename)
             if os.path.exists(config_filename):
                 LIBRARY_CONFIG = config_filename
-
 
     with Library() as l:
         try:
@@ -535,19 +558,19 @@ if __name__ == "__main__":
 
             # filtering
             filtered = []
-            s = Search(l.ebooks, is_exact = False)
+            s = Search(l.ebooks, is_exact=False)
 
             if args.collections is not None:
                 if args.collections == "":
                     all_tags = list_tags(l.ebooks)
                     for tag in sorted(all_tags.keys()):
-                        print(" -> %s (%s)"%(tag, all_tags[tag]))
+                        print(" -> %s (%s)" % (tag, all_tags[tag]))
                 elif args.collections == "untagged":
                     filtered = s.excludes(["tag:"])
                     filtered = s.run_search(EvaluateMatch.AND)
                 else:
                     s.is_exact = True
-                    filtered = s.filters(['tag:%s'%args.collections])
+                    filtered = s.filters(['tag:%s' % args.collections])
                     filtered = s.run_search(EvaluateMatch.AND)
 
             else:
@@ -560,7 +583,6 @@ if __name__ == "__main__":
                     s.filters(args.filter_ebooks_or)
                     filtered = s.run_search(EvaluateMatch.OR)
 
-
             # add/remove tags
             if args.add_tag is not None and filtered != []:
                 for ebook in filtered:
@@ -571,7 +593,6 @@ if __name__ == "__main__":
                     for tag in args.delete_tag:
                         ebook.remove_from_collection(tag)
 
-            #print('(', read("read"), not_read("not_read"), reading("reading"), ')')
             for ebook in sorted(filtered, key=lambda x: x.filename):
                 if args.info is None:
                     print(" -> ", ebook)
@@ -595,16 +616,17 @@ if __name__ == "__main__":
                 if args.sync is True and args.kindle:
                     l.sync_with_kindle(filtered)
                 elif os.path.exists(args.sync) and os.path.isdir(args.sync):
-                    l.sync_with_kindle(filtered, kindle_sync = False, destination_dir = args.sync)
+                    l.sync_with_kindle(filtered, kindle_sync=False,
+                                       destination_dir=args.sync)
                 else:
                     print("Invalid sync command.")
                     sys.exit()
 
             if args.serve:
                 if args.kindle:
-                    l.serve(filtered, kindle_sync = True)
+                    l.serve(filtered, kindle_sync=True)
                 else:
-                    l.serve(filtered, kindle_sync = False)
+                    l.serve(filtered, kindle_sync=False)
 
             l.save_db(args.readable)
         except Exception as err:
@@ -612,4 +634,4 @@ if __name__ == "__main__":
             traceback.print_exc()
             sys.exit(-1)
 
-        print("Everything done in %.2fs."%(time.perf_counter() - start))
+        print("Everything done in %.2fs." % (time.perf_counter() - start))
