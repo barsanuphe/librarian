@@ -1,5 +1,6 @@
-import requests, json
-from .epub import Epub, unread, reading, read
+import requests
+from .epub import unread, reading, read
+
 
 class SearchResult(object):
     def __init__(self, hit, description):
@@ -9,7 +10,7 @@ class SearchResult(object):
         self.description = description
 
     def __str__(self):
-        return "  Author: %s\n  Title: %s\n  First published: %s\n  Description: %s"%(self.author, self.title, self.year, self.description)
+        return "  Author: %s\n  Title: %s\n  First published: %s\n  Description: %s" % (self.author, self.title, self.year, self.description)
 
     def _diff(self, field, ebook):
         modified = "%s:\n    %s -> %s"
@@ -17,7 +18,8 @@ class SearchResult(object):
         if values == []:
             values = ["(not found)"]
         if ",".join(values) != getattr(self, field):
-            print(modified%(reading(field.title()), unread(",".join(values)), read(str(getattr(self, field)))))
+            print(modified % (reading(field.title()), unread(",".join(values)),
+                            read(str(getattr(self, field)))))
             return True
         return False
 
@@ -29,7 +31,8 @@ class SearchResult(object):
         return (a or t or y or d)
 
     def copy_to_source(self, ebook):
-        pass #TODO
+        pass  # TODO
+
 
 class OpenLibrarySearch(object):
 
@@ -40,7 +43,7 @@ class OpenLibrarySearch(object):
     def display_hit(self, hits, i):
         assert i < len(hits)
         hit = hits[i]
-        about = requests.get(self.works_url%hit["key"])
+        about = requests.get(self.works_url % hit["key"])
         about_json = about.json()
         description = about_json.get("description", None)
         description_str = ""
@@ -52,15 +55,17 @@ class OpenLibrarySearch(object):
         if rep == "a":
             return sr
         elif rep == "n" and i < len(hits)-1:
-            return self.display_hit(hits, i+1) #TODO test i
+            return self.display_hit(hits, i+1)  # TODO test i
         elif rep == "p" and i != 0:
-            return self.display_hit(hits, i-1) #TODO test i
+            return self.display_hit(hits, i-1)  # TODO test i
         else:
             print("what?")
 
     def search(self, ebook):
-        query = "author=%s&title=%s"%(ebook.metadata.get_values("author")[0], ebook.metadata.get_values("title")[0])
-        t = requests.get(self.search_url%query.replace(" ", "+").replace("-", "+"))
+        query = "author=%s&title=%s" % (ebook.metadata.get_values("author")[0],
+                                        ebook.metadata.get_values("title")[0])
+        t = requests.get(self.search_url %
+                         query.replace(" ", "+").replace("-", "+"))
         hits = t.json().get("docs", None)
         if hits is not None and hits != []:
             chosen_hit = self.display_hit(hits, 0)

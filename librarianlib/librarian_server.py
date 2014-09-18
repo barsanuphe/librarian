@@ -1,11 +1,12 @@
-
 from http.server import HTTPServer, SimpleHTTPRequestHandler
-import os, threading
+import os
+import threading
 from urllib.parse import quote, unquote
 
 
 class LibrarianServer(HTTPServer):
-    def __init__(self, server_address, RequestHandlerClass, allowed, library_dir, collections_json):
+    def __init__(self, server_address, RequestHandlerClass,
+                 allowed, library_dir, collections_json):
         HTTPServer.__init__(self, server_address, RequestHandlerClass)
         self.allowed = allowed
         # to make sure all goes well later when splitting and joining
@@ -14,6 +15,7 @@ class LibrarianServer(HTTPServer):
         self.allowed_relative = [el.split(library_dir)[1] for el in allowed]
         self.library_dir = library_dir
         self.collections_json = collections_json
+
 
 class LibrarianHandler(SimpleHTTPRequestHandler):
 
@@ -26,7 +28,8 @@ class LibrarianHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             text = "|".join(self.server.allowed_relative)
             self.wfile.write(text.encode("utf8"))
-        elif clean_path in self.server.allowed_relative or clean_path == "collections.json":
+        elif clean_path in self.server.allowed_relative or \
+                clean_path == "collections.json":
             super(LibrarianHandler, self).do_GET()
         elif clean_path == "LibrarianServer::shutdown":
             # return response and shutdown the server
@@ -39,7 +42,7 @@ class LibrarianHandler(SimpleHTTPRequestHandler):
             assassin.daemon = True
             assassin.start()
         else:
-            return self.send_error(404,'File Not Found: %s' % clean_path[1:])
+            return self.send_error(404, 'File Not Found: %s' % clean_path[1:])
 
     def translate_path(self, path):
         clean_path = unquote(self.path[1:], encoding='utf-8')
@@ -47,7 +50,7 @@ class LibrarianHandler(SimpleHTTPRequestHandler):
             print("Sending collections...")
             return self.server.collections_json
         else:
-            print("Sending %s..."%clean_path)
+            print("Sending %s..." % clean_path)
             # add library dir to path to actually retrieve the file
             return os.path.join(self.server.library_dir, clean_path)
 
@@ -60,7 +63,9 @@ if __name__ == "__main__":
     try:
         library_dir = ""
         allowed = [""]
-        server = LibrarianServer(('IP', port), LibrarianHandler, allowed, library_dir )
+        port = 8080
+        server = LibrarianServer(('IP', port), LibrarianHandler, allowed,
+                                 library_dir)
         server.serve_forever()
 
     except KeyboardInterrupt:

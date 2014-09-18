@@ -1,4 +1,9 @@
-import tempfile, shutil, os, subprocess, hashlib, zipfile
+import tempfile
+import shutil
+import os
+import subprocess
+import hashlib
+import zipfile
 from lxml import etree
 from enum import Enum
 from .epub_metadata import OpfFile, FakeOpfFile, ns
@@ -6,27 +11,33 @@ from .epub_metadata import OpfFile, FakeOpfFile, ns
 try:
     from colorama import init
     init(autoreset=True)
-    from colorama import Fore, Back, Style
+    from colorama import Fore, Style
 
     def unread(text):
         return Fore.YELLOW + Style.BRIGHT + text
+
     def reading(text):
-        return Fore.GREEN + Style.BRIGHT  + text
+        return Fore.GREEN + Style.BRIGHT + text
+
     def read(text):
         return Fore.BLUE + Style.BRIGHT + text
 except:
     def unread(text):
         return "** " + text
+
     def reading(text):
         return ":: " + text
+
     def read(text):
         return text
+
 
 def has_changed(f, *args):
     def new_f(*args):
         if f(*args):
             args[0].has_changed = True
     return new_f
+
 
 def strip_lower(f, *args):
     def new_f(*args):
@@ -51,7 +62,8 @@ class ReadStatus(Enum):
 
 class Epub(object):
 
-    def __init__(self, path, library_dir, author_aliases, ebook_filename_template):
+    def __init__(self, path, library_dir, author_aliases,
+                 ebook_filename_template):
         self.path = path
         self.library_dir = library_dir
         self.author_aliases = author_aliases
@@ -80,17 +92,20 @@ class Epub(object):
     def __str__(self):
         if self.metadata.get_values("series") != []:
             if self.metadata.get_values("series_index") != []:
-                series_info = "[ %s #%s ]"%(self.metadata.get_values("series")[0], self.metadata.get_values("series_index")[0])
+                series_info = "[ %s #%s ]" % (self.metadata.get_values("series")[0], self.metadata.get_values("series_index")[0])
             else:
-                series_info = "[ %s ]"%(self.metadata.get_values("series")[0])
+                series_info = "[ %s ]" % (self.metadata.get_values("series")[0])
         else:
             series_info = ""
 
         str = ""
         if self.tags == []:
-            str =  "%s (%s) %s %s"%(self.metadata.get_values("author")[0], self.metadata.get_values("year")[0], self.metadata.get_values("title")[0], series_info)
+            str = "%s (%s) %s %s" % (self.metadata.get_values("author")[0],
+                                      self.metadata.get_values("year")[0],
+                                      self.metadata.get_values("title")[0],
+                                      series_info)
         else:
-            str =  "%s (%s) %s %s [ %s ]"%(self.metadata.get_values("author")[0], self.metadata.get_values("year")[0], self.metadata.get_values("title")[0], series_info, ", ".join(self.tags))
+            str = "%s (%s) %s %s [ %s ]" % (self.metadata.get_values("author")[0], self.metadata.get_values("year")[0], self.metadata.get_values("title")[0], series_info, ", ".join(self.tags))
 
         if self.read == ReadStatus.unread:
             return unread(str)
@@ -101,7 +116,8 @@ class Epub(object):
 
     @property
     def extension(self):
-        return os.path.splitext(self.path)[1][1:].lower() # extension without the .
+        # extension without the .
+        return os.path.splitext(self.path)[1][1:].lower()
 
     @property
     def current_hash(self):
@@ -116,8 +132,8 @@ class Epub(object):
         for key in AUTHORIZED_TEMPLATE_PARTS.keys():
             if len(self.metadata.get_values(AUTHORIZED_TEMPLATE_PARTS[key])) >= 1:
                 template = template.replace(key, self.metadata.get_values(AUTHORIZED_TEMPLATE_PARTS[key])[0])
-        template = template.replace(":", "").replace("?","")
-        return "%s.%s"%(template, self.extension)
+        template = template.replace(":", "").replace("?", "")
+        return "%s.%s" % (template, self.extension)
 
     @property
     def exported_filename(self):
@@ -125,11 +141,14 @@ class Epub(object):
 
     def load_from_database_json(self, filename_dict, filename):
         if not os.path.exists(filename_dict["path"]):
-            print("File %s in DB cannot be found, ignoring."%filename_dict["path"])
+            print("File %s in DB cannot be found, ignoring." %
+                  filename_dict["path"])
             return False
         try:
             self.loaded_metadata = filename_dict
-            self.metadata = FakeOpfFile(filename_dict['metadata'], self.author_aliases) # for similar interface to OpfFile
+            # for similar interface to OpfFile
+            self.metadata = FakeOpfFile(filename_dict['metadata'],
+                                        self.author_aliases)
             self.tags = [el.lower().strip() for el in filename_dict['tags'].split(",") if el.strip() != ""]
             self.converted_to_mobi_hash = filename_dict['converted_to_mobi_hash']
             self.converted_to_mobi_from_hash = filename_dict['converted_to_mobi_from_hash']
@@ -144,15 +163,17 @@ class Epub(object):
         if self.has_changed or self.is_opf_open:
             if not self.is_opf_open:
                 self.open_metadata()
-            return  {
-                        "path": self.path,
-                        "tags": ",".join(sorted([el for el in self.tags if el.strip() != ""])),
-                        "last_synced_hash": self.last_synced_hash,
-                        "converted_to_mobi_hash": self.converted_to_mobi_hash,
-                        "converted_to_mobi_from_hash": self.converted_to_mobi_from_hash,
-                        "metadata": self.metadata.metadata_dict,
-                        "read": self.read.value
-                    }
+            return {
+                       "path": self.path,
+                       "tags": ",".join(sorted([el for el in self.tags
+                                                if el.strip() != ""])),
+                       "last_synced_hash": self.last_synced_hash,
+                       "converted_to_mobi_hash": self.converted_to_mobi_hash,
+                       "converted_to_mobi_from_hash":
+                           self.converted_to_mobi_from_hash,
+                       "metadata": self.metadata.metadata_dict,
+                       "read": self.read.value
+                   }
         else:
             return self.loaded_metadata
 
@@ -168,8 +189,10 @@ class Epub(object):
         txt = zip.read('META-INF/container.xml')
         tree = etree.fromstring(txt)
 
-        self.metadata_filename = tree.xpath('n:rootfiles/n:rootfile/@full-path',namespaces=ns)[0]
-        self.temp_opf = os.path.join(self.temp_dir, os.path.basename(self.metadata_filename))
+        self.metadata_filename = tree.xpath('n:rootfiles/n:rootfile/@full-path',
+                                            namespaces=ns)[0]
+        self.temp_opf = os.path.join(self.temp_dir,
+                                     os.path.basename(self.metadata_filename))
 
         cf = zip.read(self.metadata_filename)
         with open(self.temp_opf, "w") as opf:
@@ -196,12 +219,12 @@ class Epub(object):
             print("Saving epub...")
             self.remove_from_zip(self.path, self.metadata_filename)
             with zipfile.ZipFile(self.path, 'a') as z:
-                z.write(self.temp_opf, arcname = self.metadata_filename)
+                z.write(self.temp_opf, arcname=self.metadata_filename)
 
     def close_metadata(self):
         if self.is_opf_open:
             self.is_opf_open = False
-            #clean up
+            # clean up
             self.__exit__(None, None, None)
 
     @strip_lower
@@ -230,9 +253,10 @@ class Epub(object):
         if self.metadata.is_complete and self.library_dir in self.path:
             new_name = os.path.join(self.library_dir, self.filename)
             if new_name != self.path:
-                if not os.path.exists( os.path.dirname(new_name) ):
-                    print("Creating directory", self.get_relative_path(os.path.dirname(new_name)) )
-                    os.makedirs( os.path.dirname(new_name) )
+                if not os.path.exists(os.path.dirname(new_name)):
+                    print("Creating directory",
+                          self.get_relative_path(os.path.dirname(new_name)))
+                    os.makedirs(os.path.dirname(new_name))
                 print("Renaming to ", self.get_relative_path(new_name))
                 shutil.move(self.path, new_name)
                 # refresh name
@@ -249,59 +273,71 @@ class Epub(object):
                 self.was_converted_to_mobi = True
                 return False
 
-        if not os.path.exists( os.path.dirname(output_filename) ):
-            print("Creating directory", os.path.dirname(output_filename) )
-            os.makedirs( os.path.dirname(output_filename) )
+        if not os.path.exists(os.path.dirname(output_filename)):
+            print("Creating directory", os.path.dirname(output_filename))
+            os.makedirs(os.path.dirname(output_filename))
 
-        #conversion
+        # conversion
         print("   + Converting to .mobi: ", self.filename)
-        subprocess.check_call(['ebook-convert', self.path, output_filename, "--output-profile", "kindle_pw"], stdout=subprocess.DEVNULL)
+        subprocess.check_call(['ebook-convert',
+                               self.path,
+                               output_filename,
+                               "--output-profile",
+                               "kindle_pw"], stdout=subprocess.DEVNULL)
 
-        self.converted_to_mobi_hash = hashlib.sha1(open(output_filename, 'rb').read()).hexdigest()
+        self.converted_to_mobi_hash = \
+            hashlib.sha1(open(output_filename, 'rb').read()).hexdigest()
         self.converted_to_mobi_from_hash = self.current_hash
         self.was_converted_to_mobi = True
         return True
 
-
     @has_changed
-    def sync_with_kindle(self, destination_dir, mobi_dir = None ):
+    def sync_with_kindle(self, destination_dir, mobi_dir=None):
         if mobi_dir is not None and not self.was_converted_to_mobi:
             self.export_to_mobi(mobi_dir)
 
         if mobi_dir is not None:
-            output_filename = os.path.join(destination_dir, self.exported_filename)
+            output_filename = os.path.join(destination_dir,
+                                           self.exported_filename)
         else:
-            output_filename = os.path.join(destination_dir, self.filename)
+            output_filename = os.path.join(destination_dir,
+                                           self.filename)
 
-        if not os.path.exists( os.path.dirname(output_filename) ):
-            print("Creating directory", os.path.dirname(output_filename), flush=True )
-            os.makedirs( os.path.dirname(output_filename) )
+        if not os.path.exists(os.path.dirname(output_filename)):
+            print("Creating directory", os.path.dirname(output_filename),
+                  flush=True)
+            os.makedirs(os.path.dirname(output_filename))
 
         # check if exists and with latest hash
         if os.path.exists(output_filename) and \
-               ( (mobi_dir is not None and self.last_synced_hash == self.converted_to_mobi_hash) \
-              or (mobi_dir is None     and self.last_synced_hash == self.current_hash) ):
-            print("   - Skipping already synced ebook: ", self.filename, flush=True)
+          ((mobi_dir is not None and
+            self.last_synced_hash == self.converted_to_mobi_hash) or
+          (mobi_dir is None and
+           self.last_synced_hash == self.current_hash)):
+            print("   - Skipping already synced ebook: ", self.filename,
+                  flush=True)
             return False
 
         print("   + Syncing: ", self.filename, flush=True)
 
         if mobi_dir is None:
-            shutil.copy( os.path.join(self.library_dir, self.filename), output_filename)
+            shutil.copy(os.path.join(self.library_dir, self.filename),
+                        output_filename)
             self.last_synced_hash = self.current_hash
         else:
-            shutil.copy( os.path.join(mobi_dir, self.exported_filename), output_filename)
+            shutil.copy(os.path.join(mobi_dir, self.exported_filename),
+                        output_filename)
             self.last_synced_hash = self.converted_to_mobi_hash
         return True
 
-    def info(self, field_list = None):
+    def info(self, field_list=None):
         info = str(self) + "\n" + "-"*len(str(self)) + "\n"
         for key in self.metadata.keys:
             if (field_list and key in field_list) or not field_list:
-                info += "\t%s : \t%s\n"%(key, ",".join(self.metadata.get_values(key)))
+                info += "\t%s : \t%s\n" % \
+                    (key, ",".join(self.metadata.get_values(key)))
         info += "\n"
         return info
-
 
     def write_metadata(self, key, value):
         if key not in self.metadata.keys:
@@ -314,23 +350,22 @@ class Epub(object):
             self.open_metadata()
 
         changes = ""
-
         for part in update_list:
             try:
                 key, value = part.split(":")
-                #TODO: get all values for field
+                # TODO: get all values for field
                 old_values = self.metadata.get_values(key)
                 if value.title() not in old_values:
-                    #TODO: list of unique fields
+                    # TODO: list of unique fields
                     self.write_metadata(key, value.title())
-                    changes += "%s  -> %s\n"%(old_values, value.title())
+                    changes += "%s  -> %s\n" % (old_values, value.title())
             except Exception as err:
                 print("Error writing metadata", part, ":", err)
-                continue # ignore this part only
+                continue  # ignore this part only
 
         if changes == "":
             print("No change detected.")
-            return # nothing to do
+            return  # nothing to do
 
         print("Updating epub metadata:")
         print(changes)

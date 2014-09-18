@@ -2,9 +2,9 @@ from lxml import etree
 from collections import defaultdict
 
 ns = {
-        'n':'urn:oasis:names:tc:opendocument:xmlns:container',
-        'pkg':'http://www.idpf.org/2007/opf',
-        'dc':'http://purl.org/dc/elements/1.1/'
+        'n': 'urn:oasis:names:tc:opendocument:xmlns:container',
+        'pkg': 'http://www.idpf.org/2007/opf',
+        'dc': 'http://purl.org/dc/elements/1.1/'
      }
 
 METADATA_ALIASES = {
@@ -12,17 +12,15 @@ METADATA_ALIASES = {
     "author": "creator",
     }
 
+
 def sanitize(name, result, author_aliases):
     if name in METADATA_ALIASES.keys():
         name = METADATA_ALIASES[name]
     if name == "creator":
-        #TODO:
-        #if len(self.raw_metadata["dc:creator"]) >= 2:
-            #res["author"] = "Various"
         if ',' in result:
             parts = result.split(",")
             if len(parts) == 2:
-                result = "%s %s"%(parts[1].strip(), parts[0].strip())
+                result = "%s %s" % (parts[1].strip(), parts[0].strip())
             if len(parts) > 2:
                 result = "Various"
         result = result.title()
@@ -55,13 +53,16 @@ class FakeOpfFile(object):
         name = METADATA_ALIASES.get(name, name)
         return self.metadata_dict.get(name, [])
 
+
 class OpfFile(object):
     def __init__(self, opf, author_aliases):
         self.opf = opf
         self.author_aliases = author_aliases
         self.tree = etree.parse(self.opf)
-        self.metadata_element = self.tree.xpath('/pkg:package/pkg:metadata',namespaces = ns)[0]
-        self.epub_version = self.tree.xpath('/pkg:package',namespaces = ns)[0].get("version")
+        self.metadata_element = self.tree.xpath('/pkg:package/pkg:metadata',
+                                                namespaces=ns)[0]
+        self.epub_version = self.tree.xpath('/pkg:package',
+                                            namespaces=ns)[0].get("version")
         self.has_changed = False
         self.metadata_dict = defaultdict(list)
         self.parse()
@@ -75,7 +76,9 @@ class OpfFile(object):
 
     @property
     def is_complete(self):
-        return ("title" in self.keys and "date" in self.keys and "creator" in self.keys)
+        return ("title" in self.keys and
+                "date" in self.keys and
+                "creator" in self.keys)
 
     def parse(self):
         for node in self.metadata_element:
@@ -97,7 +100,11 @@ class OpfFile(object):
 
     def save(self):
         with open(self.opf, 'w') as file_handle:
-            file_handle.write(etree.tostring(self.tree, pretty_print=True, encoding='utf8', xml_declaration=True).decode("utf8"))
+            file_handle.write(etree.tostring(self.tree,
+                                             pretty_print=True,
+                                             encoding='utf8',
+                                             xml_declaration=True
+                                             ).decode("utf8"))
 
     def get_values(self, name):
         name = METADATA_ALIASES.get(name, name)
@@ -107,7 +114,7 @@ class OpfFile(object):
 
         return self.get_elements(name)
 
-    def set_value(self, name, value, replace = False):
+    def set_value(self, name, value, replace=False):
         name = METADATA_ALIASES.get(name, name)
 
         nodes = self.get_elements(name)
@@ -134,9 +141,9 @@ class OpfFile(object):
         if not found:
             print(" -- Creating new metadata", name, '=', value)
             if name in ["series", "series_index"]:
-                self.insert_new_node(name, value, is_meta = True)
+                self.insert_new_node(name, value, is_meta=True)
             else:
-                self.insert_new_node(name, value, is_meta = False)
+                self.insert_new_node(name, value, is_meta=False)
 
         self.has_changed = True
         self.save()
@@ -144,10 +151,10 @@ class OpfFile(object):
     def remove_value(self, name, value):
         pass # TODO!
 
-    def insert_new_node(self, name, value, is_meta = False):
+    def insert_new_node(self, name, value, is_meta=False):
         if is_meta:
             new_node = etree.Element("meta")
-            new_node.set("name", "calibre:"+name)
+            new_node.set("name", "calibre:" + name)
             new_node.set("content", value)
             self.metadata_element.append(new_node)
         else:
