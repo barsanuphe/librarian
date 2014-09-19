@@ -1,6 +1,5 @@
 from collections import defaultdict
 import re
-
 from .epub import Epub, ReadStatus
 
 
@@ -87,10 +86,15 @@ def match_this(ebook, value, field=None, exact=False):
             result = result or any([(value in tag.lower())
                                     for tag in ebook.tags])
 
+        # progress
+        result = result or (ebook.read.name == value)
+
         return result
 
     else:
-        if field == "tag":
+        if field == "progress":
+            return (ebook.read.name == value)
+        elif field == "tag":
             if exact:
                 return any([(value == tag.lower()) for tag in ebook.tags])
             else:

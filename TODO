@@ -3,7 +3,6 @@
 #TODO: auto-correct option (w/author_aliases) + yaml option confirm_before_write
 #TODO: try to query google books too
 #TODO: when querying by series, order by series_index
-#TODO: search by progress
 
 #TODO: make standalone librarian_server.py
 #TODO: documents_subdir in librarian_download ini
