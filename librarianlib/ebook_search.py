@@ -1,6 +1,5 @@
 from collections import defaultdict
 import re
-from .epub import Epub, ReadStatus
 
 
 def list_tags(ebooks):
@@ -74,10 +73,10 @@ def match_this(ebook, value, field=None, exact=False):
                     or (is_list and value in field_value.lower())
             else:
                 result = result or \
-                         (not is_list and any([(value == val.lower())
-                                               for val in field_value])) or\
-                         (is_list and any([(value in val.lower())
-                                           for val in field_value]))
+                    (not is_list and any([(value == val.lower())
+                                          for val in field_value])) or \
+                    (is_list and any([(value in val.lower())
+                                      for val in field_value]))
         # tags
         if exact:
             result = result or any([(value == tag.lower())

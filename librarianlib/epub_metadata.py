@@ -90,7 +90,7 @@ class FakeOpfFile(EbookMetadata):
 
 
 class OpfFile(EbookMetadata):
-    
+
     def __init__(self, opf, author_aliases):
         super().__init__(author_aliases)
         self.opf = opf

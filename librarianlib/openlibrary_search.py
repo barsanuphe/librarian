@@ -10,7 +10,12 @@ class SearchResult(object):
         self.description = description
 
     def __str__(self):
-        return "  Author: %s\n  Title: %s\n  First published: %s\n  Description: %s" % (self.author, self.title, self.year, self.description)
+        return """\
+    Author:          %s
+    Title:           %s
+    First published: %s
+    Description:     %s
+    """ % (self.author, self.title, self.year, self.description)
 
     def _diff(self, field, ebook):
         modified = "%s:\n    %s -> %s"
@@ -19,7 +24,7 @@ class SearchResult(object):
             values = ["(not found)"]
         if ",".join(values) != getattr(self, field):
             print(modified % (reading(field.title()), unread(",".join(values)),
-                            read(str(getattr(self, field)))))
+                              read(str(getattr(self, field)))))
             return True
         return False
 
@@ -69,4 +74,7 @@ class OpenLibrarySearch(object):
         hits = t.json().get("docs", None)
         if hits is not None and hits != []:
             chosen_hit = self.display_hit(hits, 0)
-        return chosen_hit
+            return chosen_hit
+        else:
+            print("Nothing found on OpenLibrary!")
+            return None

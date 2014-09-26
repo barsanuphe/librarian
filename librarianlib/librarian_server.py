@@ -1,7 +1,7 @@
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import os
 import threading
-from urllib.parse import quote, unquote
+from urllib.parse import unquote
 
 
 class LibrarianServer(HTTPServer):

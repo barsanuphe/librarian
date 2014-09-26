@@ -91,21 +91,30 @@ class Epub(object):
 
     def __str__(self):
         if self.metadata.get_values("series") != []:
+            first_series = self.metadata.get_values("series")[0]
             if self.metadata.get_values("series_index") != []:
-                series_info = "[ %s #%s ]" % (self.metadata.get_values("series")[0], self.metadata.get_values("series_index")[0])
+                first_series_idx = self.metadata.get_values("series_index")[0]
+                series_info = "[ %s #%s ]" % (first_series, first_series_idx)
             else:
-                series_info = "[ %s ]" % (self.metadata.get_values("series")[0])
+                series_info = "[ %s ]" % (first_series)
         else:
             series_info = ""
 
+        first_author = self.metadata.get_values("author")[0]
+        first_title = self.metadata.get_values("title")[0]
+        first_year = self.metadata.get_values("year")[0]
         str = ""
         if self.tags == []:
-            str = "%s (%s) %s %s" % (self.metadata.get_values("author")[0],
-                                      self.metadata.get_values("year")[0],
-                                      self.metadata.get_values("title")[0],
-                                      series_info)
+            str = "%s (%s) %s %s" % (first_author,
+                                     first_year,
+                                     first_title,
+                                     series_info)
         else:
-            str = "%s (%s) %s %s [ %s ]" % (self.metadata.get_values("author")[0], self.metadata.get_values("year")[0], self.metadata.get_values("title")[0], series_info, ", ".join(self.tags))
+            str = "%s (%s) %s %s [ %s ]" % (first_author,
+                                            first_year,
+                                            first_title,
+                                            series_info,
+                                            ", ".join(self.tags))
 
         if self.read == ReadStatus.unread:
             return unread(str)
@@ -130,8 +139,10 @@ class Epub(object):
     def filename(self):
         template = self.template
         for key in AUTHORIZED_TEMPLATE_PARTS.keys():
-            if len(self.metadata.get_values(AUTHORIZED_TEMPLATE_PARTS[key])) >= 1:
-                template = template.replace(key, self.metadata.get_values(AUTHORIZED_TEMPLATE_PARTS[key])[0])
+            relevant_parts = self.metadata.get_values(
+                AUTHORIZED_TEMPLATE_PARTS[key])
+            if len(relevant_parts) >= 1:
+                template = template.replace(key, relevant_parts[0])
         template = template.replace(":", "").replace("?", "")
         return "%s.%s" % (template, self.extension)
 
@@ -149,9 +160,13 @@ class Epub(object):
             # for similar interface to OpfFile
             self.metadata = FakeOpfFile(filename_dict['metadata'],
                                         self.author_aliases)
-            self.tags = [el.lower().strip() for el in filename_dict['tags'].split(",") if el.strip() != ""]
-            self.converted_to_mobi_hash = filename_dict['converted_to_mobi_hash']
-            self.converted_to_mobi_from_hash = filename_dict['converted_to_mobi_from_hash']
+            self.tags = [el.lower().strip()
+                         for el in filename_dict['tags'].split(",")
+                         if el.strip() != ""]
+            self.converted_to_mobi_hash = \
+                filename_dict['converted_to_mobi_hash']
+            self.converted_to_mobi_from_hash = \
+                filename_dict['converted_to_mobi_from_hash']
             self.last_synced_hash = filename_dict['last_synced_hash']
             self.read = ReadStatus(int(filename_dict['read']))
         except Exception as err:
@@ -164,16 +179,16 @@ class Epub(object):
             if not self.is_opf_open:
                 self.open_metadata()
             return {
-                       "path": self.path,
-                       "tags": ",".join(sorted([el for el in self.tags
-                                                if el.strip() != ""])),
-                       "last_synced_hash": self.last_synced_hash,
-                       "converted_to_mobi_hash": self.converted_to_mobi_hash,
-                       "converted_to_mobi_from_hash":
-                           self.converted_to_mobi_from_hash,
-                       "metadata": self.metadata.metadata_dict,
-                       "read": self.read.value
-                   }
+                "path": self.path,
+                "tags": ",".join(sorted([el for el in self.tags
+                                        if el.strip() != ""])),
+                "last_synced_hash": self.last_synced_hash,
+                "converted_to_mobi_hash": self.converted_to_mobi_hash,
+                "converted_to_mobi_from_hash":
+                    self.converted_to_mobi_from_hash,
+                "metadata": self.metadata.metadata_dict,
+                "read": self.read.value
+                }
         else:
             return self.loaded_metadata
 
@@ -189,8 +204,9 @@ class Epub(object):
         txt = zip.read('META-INF/container.xml')
         tree = etree.fromstring(txt)
 
-        self.metadata_filename = tree.xpath('n:rootfiles/n:rootfile/@full-path',
-                                            namespaces=ns)[0]
+        self.metadata_filename = tree.xpath(
+            'n:rootfiles/n:rootfile/@full-path',
+            namespaces=ns)[0]
         self.temp_opf = os.path.join(self.temp_dir,
                                      os.path.basename(self.metadata_filename))
 
@@ -309,14 +325,16 @@ class Epub(object):
             os.makedirs(os.path.dirname(output_filename))
 
         # check if exists and with latest hash
-        if os.path.exists(output_filename) and \
-          ((mobi_dir is not None and
-            self.last_synced_hash == self.converted_to_mobi_hash) or
-          (mobi_dir is None and
-           self.last_synced_hash == self.current_hash)):
-            print("   - Skipping already synced ebook: ", self.filename,
-                  flush=True)
-            return False
+        already_synced_epub = (mobi_dir is None and
+                               self.last_synced_hash == self.current_hash)
+        already_synced_mobi = (mobi_dir is not None and
+                               self.last_synced_hash ==
+                               self.converted_to_mobi_hash)
+        if (os.path.exists(output_filename) and
+           (already_synced_mobi or already_synced_epub)):
+                print("   - Skipping already synced ebook: ", self.filename,
+                      flush=True)
+                return False
 
         print("   + Syncing: ", self.filename, flush=True)
 
