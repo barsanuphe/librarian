@@ -19,3 +19,9 @@
     --update-files-metadata write to the epub from db
     yaml: auto-update-files-metadata = true
     -- display diff of changes
+
+
+
+- keep db and opf separate
+- save db to opf when needed
+- do not overwrite db from opf automatically on refresh

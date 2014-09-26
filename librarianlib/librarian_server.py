@@ -55,7 +55,7 @@ class LibrarianHandler(SimpleHTTPRequestHandler):
             return os.path.join(self.server.library_dir, clean_path)
 
     def log_message(self, format, *args):
-        # muting default output
+        # mute default output
         return
 
 
