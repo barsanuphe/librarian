@@ -331,13 +331,8 @@ class Epub(object):
         return True
 
     def info(self, field_list=None):
-        info = str(self) + "\n" + "-"*len(str(self)) + "\n"
-        for key in self.metadata.keys:
-            if (field_list and key in field_list) or not field_list:
-                info += "\t%s : \t%s\n" % \
-                    (key, ",".join(self.metadata.get_values(key)))
-        info += "\n"
-        return info
+        return str(self) + "\n" + "-"*len(str(self)) + "\n" + \
+            self.metadata.show_fields(field_list)
 
     def write_metadata(self, key, value):
         if key not in self.metadata.keys:
