@@ -40,6 +40,20 @@ def sanitize(name, result, author_aliases):
 
 
 class EbookMetadata(object):
+    def __init__(self, author_aliases):
+        self.author_aliases = author_aliases
+        self.metadata_dict = defaultdict(list)
+        self.has_changed = False
+
+    @property
+    def keys(self):
+        return sorted(self.metadata_dict.keys())
+
+    @property
+    def is_complete(self):
+        return ("title" in self.keys and
+                "date" in self.keys and
+                "creator" in self.keys)
 
     def show_fields(self, field_list=None):
         info = ""
@@ -55,45 +69,41 @@ class EbookMetadata(object):
 
 
 class FakeOpfFile(EbookMetadata):
-    def __init__(self, entries, author_aliases):
-        self.author_aliases = author_aliases
-        self.metadata_dict = defaultdict(list)
-        self.metadata_dict.update(entries)
 
-    @property
-    def keys(self):
-        return sorted(self.metadata_dict.keys())
+    def __init__(self, entries, author_aliases):
+        super().__init__(author_aliases)
+        self.metadata_dict.update(entries)
 
     def get_values(self, name):
         name = METADATA_ALIASES.get(name, name)
         return self.metadata_dict.get(name, [])
 
+    def set_value(self, name, value, replace=False):
+        name = METADATA_ALIASES.get(name, name)
+
+        if replace:
+            self.metadata_dict[name] = [value]
+        elif value not in self.metadata_dict[name]:
+            self.metadata_dict[name].append(value)
+
+        self.has_changed = True
+
 
 class OpfFile(EbookMetadata):
+    
     def __init__(self, opf, author_aliases):
+        super().__init__(author_aliases)
         self.opf = opf
-        self.author_aliases = author_aliases
         self.tree = etree.parse(self.opf)
         self.metadata_element = self.tree.xpath('/pkg:package/pkg:metadata',
                                                 namespaces=ns)[0]
         self.epub_version = self.tree.xpath('/pkg:package',
                                             namespaces=ns)[0].get("version")
-        self.has_changed = False
-        self.metadata_dict = defaultdict(list)
+
         self.parse()
 
     def get_elements(self, name):
         return self.metadata_dict.get(name, None)
-
-    @property
-    def keys(self):
-        return sorted(self.metadata_dict.keys())
-
-    @property
-    def is_complete(self):
-        return ("title" in self.keys and
-                "date" in self.keys and
-                "creator" in self.keys)
 
     def parse(self):
         for node in self.metadata_element:
