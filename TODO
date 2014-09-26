@@ -8,3 +8,14 @@
 #TODO: documents_subdir in librarian_download ini
 
 #TODO: tag / reading progress as new "meta" opf metadata
+
+#TODO: Add meta tags:
+    librarian:series = series, series_index
+    librarian:tags = tag, tags
+    librarian:progress = read
+    librarian:original_year = original_year
+
+#TODO:
+    --update-files-metadata write to the epub from db
+    yaml: auto-update-files-metadata = true
+    -- display diff of changes

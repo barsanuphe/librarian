@@ -489,6 +489,7 @@ if __name__ == "__main__":
     group_tagging.add_argument('-t', '--add-tag',       dest='add_tag',             action='store', nargs="+", metavar="TAG",                   help='tag listed ebooks in library')
     group_tagging.add_argument('-d', '--delete-tag',    dest='delete_tag',          action='store', nargs="+", metavar="TAG",                   help='remove tag(s) from listed ebooks in library')
     group_tagging.add_argument('-c', '--collections',   dest='collections',         action='store', nargs='?', metavar="COLLECTION", const="",  help='list all tags or ebooks with a given tag or "untagged"')
+    group_tagging.add_argument('-a', '--authors',       dest='authors',             action='store', nargs='?', metavar="AUTHOR",     const="",  help='list all authors')
     group_tagging.add_argument(      '--progress',      dest='read',                choices=['read', 'reading', 'unread'],                    help='Set filtered ebooks as read.')
 
     group_tagging = parser.add_argument_group('Metadata', 'Display and write epub metadata.')
@@ -572,7 +573,15 @@ if __name__ == "__main__":
                     s.is_exact = True
                     filtered = s.filters(['tag:%s' % args.collections])
                     filtered = s.run_search(EvaluateMatch.AND)
-
+            elif args.authors is not None:
+                if args.authors == "":
+                    all_authors = list_authors(l.ebooks)
+                    for author in sorted(all_authors.keys()):
+                        print(" -> %s (%s)" % (author, all_authors[author]))
+                else:
+                    s.is_exact = True
+                    filtered = s.filters(['author:%s' % args.authors])
+                    filtered = s.run_search(EvaluateMatch.AND)
             else:
                 if args.filter_exclude is not None:
                     s.excludes(args.filter_exclude)

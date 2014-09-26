@@ -12,6 +12,12 @@ def list_tags(ebooks):
                 all_tags[tag] += 1
     return all_tags
 
+def list_authors(ebooks):
+    all_authors = defaultdict(lambda: 0)
+    for ebook in ebooks:
+        author = ebook.metadata.get_values("author")[0]
+        all_authors[author] += 1
+    return all_authors
 
 class Search(object):
     """ This class builds a EvaluateMatch object from input conditions,
