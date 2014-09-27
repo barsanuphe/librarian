@@ -16,6 +16,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
 import json
 import argparse
+import ipaddress
 
 from librarianlib.epub import Epub
 from librarianlib.ebook_search import list_authors, list_tags
@@ -40,59 +41,79 @@ except Exception as err:
     print("pyyaml (for python3) must be installed!")
     sys.exit(-1)
 
-# library & config are located next to this script
 librarian_dir = os.path.dirname(os.path.realpath(__file__))
-LIBRARY_DB = os.path.join(librarian_dir, "library.json")
-LIBRARY_CONFIG = os.path.join(librarian_dir, "librarian.yaml")
 
 
-LIBRARY_ROOT = ""
-KINDLE_ROOT = ""
-LIBRARY_DIR = ""
-KINDLE_DIR = ""
-COLLECTIONS = ""
-IMPORT_DIR = ""
-IMPORTED_DIR = ""
-KINDLE_EXTENSIONS = ""
-KINDLE_DOCUMENTS = ""
-KINDLE_DOCUMENTS_SUBDIR = "library"
-AUTHOR_ALIASES = {}
-IP = "localhost"
-PORT = 13699
+def open_config():
+    # configuration
+    librarian_dir = os.path.dirname(os.path.realpath(__file__))
+    yaml_config = os.path.join(librarian_dir, "librarian.yaml")
+    assert os.path.exists(yaml_config)
+    config = yaml.load(open(yaml_config, 'r'))
+    try:
+        assert "kindle_root" in config.keys()
+        assert "library_root" in config.keys()
+        assert "kindle_documents_subdir" in config.keys()
 
+        config["import_dir"] = os.path.join(config["library_root"],
+                                            "import")
+        config["library_dir"] = os.path.join(config["library_root"],
+                                             "library")
+        config["mobi_dir"] = os.path.join(config["library_root"],
+                                          "mobi")
+        config["imported_dir"] = os.path.join(config["library_root"],
+                                              "imported")
+        config["collections"] = os.path.join(config["library_root"],
+                                             "collections.json")
+        config["kindle_documents"] = os.path.join(config["kindle_root"],
+                                                  "documents",
+                                                  "librarian")
+        config["kindle_extensions"] = os.path.join(config["kindle_root"],
+                                                   "extensions")
 
-def refresh_global_variables():
-    global IMPORT_DIR, IMPORTED_DIR, LIBRARY_DIR, KINDLE_DIR, COLLECTIONS
-    global KINDLE_DOCUMENTS, KINDLE_EXTENSIONS, KINDLE_ROOT
-    global LIBRARY_ROOT
-    IMPORT_DIR = os.path.join(LIBRARY_ROOT, "import")
-    LIBRARY_DIR = os.path.join(LIBRARY_ROOT, "library")
-    IMPORTED_DIR = os.path.join(LIBRARY_ROOT, "imported")
-    KINDLE_DIR = os.path.join(LIBRARY_ROOT, "kindle")
-    COLLECTIONS = os.path.join(LIBRARY_ROOT, "collections.json")
-    KINDLE_DOCUMENTS = os.path.join(KINDLE_ROOT, "documents",
-                                    KINDLE_DOCUMENTS_SUBDIR)
-    KINDLE_EXTENSIONS = os.path.join(KINDLE_ROOT, "extensions")
+        # create folders if necessary
+        if not os.path.exists(config["import_dir"]):
+            os.makedirs(config["import_dir"])
+        if not os.path.exists(config["imported_dir"]):
+            os.makedirs(config["imported_dir"])
+        if not os.path.exists(config["library_dir"]):
+            os.makedirs(config["library_dir"])
+        if not os.path.exists(config["mobi_dir"]):
+            os.makedirs(config["mobi_dir"])
 
-    if not os.path.exists(IMPORT_DIR):
-        os.makedirs(IMPORT_DIR)
-    if not os.path.exists(IMPORTED_DIR):
-        os.makedirs(IMPORTED_DIR)
-    if not os.path.exists(LIBRARY_DIR):
-        os.makedirs(LIBRARY_DIR)
-    if not os.path.exists(KINDLE_DIR):
-        os.makedirs(KINDLE_DIR)
+        if "server" in config.keys():
+            # raise ValueError if not valid IP address
+            ipaddress.ip_address(config["server"]["IP"])
+            # same if not int
+            int(config["server"]["port"])
+        if "scrape_root" in config.keys():
+            assert os.path.exists(config["scrape_root"])
+        if "backup_imported_ebooks" in config.keys():
+            assert isinstance(config["backup_imported_ebooks"], bool)
+        if "author_aliases" in config.keys():
+            assert isinstance(config["author_aliases"], dict)
+        if "interactive" in config.keys():
+            assert isinstance(config["interactive"], bool)
+        if "ebook_filename_template" not in config.keys():
+            config["ebook_filename_template"] = "$a/$a ($y) $t"
+
+    except Exception as err:
+        print("Missing config option: ", err)
+        raise Exception("Invalid configuration file!")
+
+    return config
 
 
 class Library(object):
 
-    def __init__(self):
+    def __init__(self, config, db):
         self.ebooks = []
         self.backup_imported_ebooks = True
         self.scrape_root = None
         self.interactive = False
         self.ebook_filename_template = "$a/$a ($y) $t"
-        self.open_config()
+        self.config = config
+        self.db = db
 
     def __enter__(self):
         return self
@@ -103,58 +124,17 @@ class Library(object):
             if epub.is_opf_open:
                 epub.close_metadata()
 
-    def open_config(self):
-        # configuration
-        if os.path.exists(LIBRARY_CONFIG):
-            self.config = yaml.load(open(LIBRARY_CONFIG, 'r'))
-            global KINDLE_ROOT, LIBRARY_ROOT, AUTHOR_ALIASES
-            global KINDLE_DOCUMENTS_SUBDIR, IP, PORT
-            try:
-                KINDLE_ROOT = self.config["kindle_root"]
-                LIBRARY_ROOT = self.config["library_root"]
-
-                if "kindle_documents_subdir" in self.config.keys():
-                    # TODO check if valid name
-                    KINDLE_DOCUMENTS_SUBDIR = \
-                        self.config["kindle_documents_subdir"]
-
-                refresh_global_variables()
-            except Exception as err:
-                print("Missing config option: ", err)
-                raise Exception("Invalid configuration file!")
-
-            if "server" in self.config.keys():  # TODO checks
-                IP = self.config["server"]["IP"]
-                PORT = int(self.config["server"]["port"])
-
-            if "scrape_root" in self.config.keys():
-                self.scrape_root = self.config["scrape_root"]
-            if "backup_imported_ebooks" in self.config.keys():
-                self.backup_imported_ebooks = \
-                    self.config["backup_imported_ebooks"]
-            if "author_aliases" in self.config.keys():
-                AUTHOR_ALIASES = self.config["author_aliases"]
-            if "interactive" in self.config.keys():
-                self.interactive = self.config["interactive"]
-            self.ebook_filename_template = \
-                self.config.get("ebook_filename_template", "$a/$a ($y) $t")
-
-    def save_config(self):
-        yaml.dump(self.config, open(LIBRARY_CONFIG, 'w'), indent=4,
-                  default_flow_style=False, allow_unicode=True)
-
     def _load_ebook(self, everything, filename):
         if "path" not in everything[filename].keys():
             return False, None
-        eb = Epub(everything[filename]["path"], LIBRARY_DIR,
-                  AUTHOR_ALIASES, self.ebook_filename_template)
+        eb = Epub(everything[filename]["path"], self.config["library_dir"],
+                  self.config["author_aliases"], self.ebook_filename_template)
         return eb.load_from_database_json(everything[filename], filename), eb
 
     def open_db(self):
-        self.db = []
-        if os.path.exists(LIBRARY_DB):
+        if os.path.exists(self.db):
             start = time.perf_counter()
-            everything = json.load(open(LIBRARY_DB, 'r'))
+            everything = json.load(open(self.db, 'r'))
 
             with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
                 future_to_ebook = {
@@ -179,7 +159,8 @@ class Library(object):
                 eb.open_metadata()
                 return eb
         if not is_already_in_db:
-            eb = Epub(full_path, LIBRARY_DIR, AUTHOR_ALIASES,
+            eb = Epub(full_path, self.config["library_dir"],
+                      self.config["author_aliases"],
                       self.ebook_filename_template)
             eb.open_metadata()
             print(" ->  NEW EBOOK: ", eb)
@@ -193,7 +174,7 @@ class Library(object):
         self.ebooks = []
 
         all_ebooks_in_library_dir = []
-        for root, dirs, files in os.walk(LIBRARY_DIR):
+        for root, dirs, files in os.walk(self.config["library_dir"]):
             all_ebooks_in_library_dir.extend([os.path.join(root, el)
                                               for el in files
                                               if el.lower().endswith(".epub")])
@@ -222,8 +203,9 @@ class Library(object):
         for eb in to_delete:
             print(" -> DELETED EBOOK: ", eb)
 
-        # remove empty dirs in LIBRARY_DIR
-        for root, dirs, files in os.walk(LIBRARY_DIR, topdown=False):
+        # remove empty dirs in self.config["library_dir"]
+        for root, dirs, files in os.walk(self.config["library_dir"],
+                                         topdown=False):
             for dir in [os.path.join(root, el) for el in dirs if
                         os.listdir(os.path.join(root, el)) == []]:
                 os.rmdir(dir)
@@ -238,7 +220,7 @@ class Library(object):
         for ebook in sorted(self.ebooks, key=lambda x: x.filename):
             data[ebook.filename] = ebook.to_database_json()
         # dumping in json file
-        with open(LIBRARY_DB, "w") as data_file:
+        with open(self.db, "w") as data_file:
             if readable:
                 data_file.write(json.dumps(data, sort_keys=True, indent=2,
                                            separators=(',', ': '),
@@ -247,14 +229,15 @@ class Library(object):
                 data_file.write(json.dumps(data, ensure_ascii=False))
 
     def scrape_dir_for_ebooks(self):
-        if self.scrape_root is None:
+        scrape_root = self.config.get("scrape_root", None)
+        if scrape_root is None:
             print("scrape_root not defined in librarian.yaml, nothing to do.")
             return
 
         start = time.perf_counter()
         all_ebooks_in_scrape_dir = []
-        print("Finding ebooks in %s..." % self.scrape_root)
-        for root, dirs, files in os.walk(self.scrape_root):
+        print("Finding ebooks in %s..." % scrape_root)
+        for root, dirs, files in os.walk(scrape_root):
             all_ebooks_in_scrape_dir.extend([os.path.join(root, el)
                                              for el in files
                                              if os.path.splitext(el.lower())[1]
@@ -273,11 +256,11 @@ class Library(object):
             print("Nothing to scrape.")
             return False
         else:
-            print("Scraping ", self.scrape_root)
+            print("Scraping ", scrape_root)
 
         for ebook in filtered_ebooks_in_scrape_dir:
             print(" -> Scraping ", os.path.basename(ebook))
-            shutil.copyfile(ebook, os.path.join(IMPORT_DIR,
+            shutil.copyfile(ebook, os.path.join(self.config["import_dir"],
                                                 os.path.basename(ebook)))
 
         print("Scraped ebooks in %.2fs." % (time.perf_counter() - start))
@@ -296,8 +279,8 @@ class Library(object):
     def import_new_ebooks(self):
         # multithreaded conversion to epub before import, if necessary
         cpt = 1
-        all_mobis = [os.path.join(IMPORT_DIR, el)
-                     for el in os.listdir(IMPORT_DIR)
+        all_mobis = [os.path.join(self.config["import_dir"], el)
+                     for el in os.listdir(self.config["import_dir"])
                      if el.endswith(".mobi")]
         with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
             future_epubs = {
@@ -312,7 +295,7 @@ class Library(object):
                 else:
                     raise Exception("Error converting to epub!")
 
-        all_ebooks = [el for el in os.listdir(IMPORT_DIR)
+        all_ebooks = [el for el in os.listdir(self.config["import_dir"])
                       if el.endswith(".epub")]
         if len(all_ebooks) == 0:
             print("Nothing new to import.")
@@ -320,18 +303,23 @@ class Library(object):
         else:
             print("Importing.")
 
-        all_already_imported_ebooks = [el for el in os.listdir(IMPORTED_DIR)
+        all_already_imported_ebooks = [el
+                                       for el
+                                       in os.listdir(
+                                           self.config["imported_dir"])
                                        if el.endswith(".epub")]
         already_imported_hashes = []
         for eb in all_already_imported_ebooks:
             already_imported_hashes.append(
-                hashlib.sha1(open(os.path.join(IMPORTED_DIR, eb),
+                hashlib.sha1(open(os.path.join(self.config["imported_dir"],
+                                               eb),
                                   'rb').read()).hexdigest())
 
         start = time.perf_counter()
         imported_count = 0
         for ebook in all_ebooks:
-            ebook_candidate_full_path = os.path.join(IMPORT_DIR, ebook)
+            ebook_candidate_full_path = os.path.join(self.config["import_dir"],
+                                                     ebook)
 
             # check for duplicate hash
             new_hash = hashlib.sha1(open(ebook_candidate_full_path,
@@ -341,8 +329,10 @@ class Library(object):
                 continue
 
             # check for complete metadata
-            temp_ebook = Epub(ebook_candidate_full_path, LIBRARY_DIR,
-                              AUTHOR_ALIASES, self.ebook_filename_template)
+            temp_ebook = Epub(ebook_candidate_full_path,
+                              self.config["library_dir"],
+                              self.config["author_aliases"],
+                              self.ebook_filename_template)
             temp_ebook.open_metadata()
             if not temp_ebook.metadata.is_complete:
                 print(" -> skipping ebook with incomplete metadata: ", ebook)
@@ -375,19 +365,20 @@ class Library(object):
             # if all checks are ok, importing
             print(" ->", ebook)
             # backup
-            if self.backup_imported_ebooks:
+            if self.config["backup_imported_ebooks"]:
                 # backup original mobi version if it exists
                 mobi_full_path = ebook_candidate_full_path.replace(".epub",
                                                                    ".mobi")
                 if os.path.exists(mobi_full_path):
                     shutil.move(mobi_full_path,
-                                os.path.join(IMPORTED_DIR,
+                                os.path.join(self.config["imported_dir"],
                                              ebook.replace(".epub", ".mobi")))
                 shutil.copyfile(ebook_candidate_full_path,
-                                os.path.join(IMPORTED_DIR, ebook))
+                                os.path.join(self.config["imported_dir"],
+                                             ebook))
             # import
             shutil.move(ebook_candidate_full_path,
-                        os.path.join(LIBRARY_DIR, ebook))
+                        os.path.join(self.config["library_dir"], ebook))
             imported_count += 1
         print("Imported ebooks in %.2fs." % (time.perf_counter() - start))
 
@@ -405,8 +396,9 @@ class Library(object):
             ebooks_to_sync = filtered
         tags_json = {}
         for eb in sorted(ebooks_to_sync, key=lambda x: x.filename):
-            relative_path = os.path.join(KINDLE_DOCUMENTS_SUBDIR,
-                                         eb.exported_filename)
+            relative_path = os.path.join(
+                self.config["kindle_documents_subdir"],
+                eb.exported_filename)
             tags_json[relative_path] = [eb.read.name]
             if eb.tags != []:
                 tags_json[relative_path].append(eb.tags)
@@ -425,11 +417,11 @@ class Library(object):
 
         if kindle_sync:
             print("Syncing with kindle.")
-            if not os.path.exists(KINDLE_ROOT):
+            if not os.path.exists(self.config["kindle_root"]):
                 print("Kindle is not connected/mounted. Abandon ship.")
                 return
-            if not os.path.exists(KINDLE_DOCUMENTS):
-                os.makedirs(KINDLE_DOCUMENTS)
+            if not os.path.exists(self.config["kindle_documents"]):
+                os.makedirs(self.config["kindle_documents"])
         else:
             if destination_dir is None:
                 print("Missing destination dir for sync. Abandon ship.")
@@ -440,7 +432,7 @@ class Library(object):
         start = time.perf_counter()
 
         if kindle_sync:
-            output_dir = KINDLE_DOCUMENTS
+            output_dir = self.config["kindle_documents"]
             file_type = ".mobi"
         else:
             output_dir = destination_dir
@@ -470,8 +462,9 @@ class Library(object):
             if kindle_sync:
                 all_sync = {
                     executor.submit(eb.sync_with_kindle,
-                                    KINDLE_DOCUMENTS,
-                                    KINDLE_DIR): eb for eb in sorted_ebooks
+                                    self.config["kindle_documents"],
+                                    self.config["mobi_dir"]): eb for eb
+                    in sorted_ebooks
                     }
             else:
                 all_sync = {
@@ -510,8 +503,10 @@ class Library(object):
         if kindle_sync:
             print(" -> Generating and copying database for \
                 collection generation.")
-            self.update_kindle_collections(COLLECTIONS, filtered)
-            shutil.copy(COLLECTIONS, KINDLE_EXTENSIONS)
+            self.update_kindle_collections(self.config["collections"],
+                                           filtered)
+            shutil.copy(self.config["collections"],
+                        self.config["kindle_extensions"])
 
         print("Library synced in %.2fs." % (time.perf_counter() - start))
 
@@ -535,24 +530,27 @@ class Library(object):
 
         if not kindle_sync:
             allowed = [el.path for el in ebooks_to_serve]
-            local_root = LIBRARY_DIR
+            local_root = self.config["library_dir"]
         else:
             for eb in ebooks_to_serve:
-                eb.export_to_mobi(KINDLE_DIR)
-            allowed = [os.path.join(KINDLE_DIR, el.exported_filename)
+                eb.export_to_mobi(self.config["mobi_dir"])
+            allowed = [os.path.join(self.config["mobi_dir"],
+                                    el.exported_filename)
                        for el in ebooks_to_serve]
-            local_root = KINDLE_DIR
+            local_root = self.config["mobi_dir"]
 
         # create partial collections
-        self.update_kindle_collections(COLLECTIONS, filtered)
+        self.update_kindle_collections(self.config["collections"], filtered)
 
         print("Serving.")
-        server = LibrarianServer((IP, PORT), LibrarianHandler, allowed,
-                                 local_root, COLLECTIONS)
+        server = LibrarianServer((self.config["server"]["IP"],
+                                  self.config["server"]["port"]),
+                                 LibrarianHandler, allowed,
+                                 local_root, self.config["collections"])
         server.serve_forever()
 
         # removing collections json
-        os.remove(COLLECTIONS)
+        os.remove(self.config["collections"])
 
 
 if __name__ == "__main__":
@@ -744,7 +742,8 @@ if __name__ == "__main__":
             if os.path.exists(config_filename):
                 LIBRARY_CONFIG = config_filename
 
-    with Library() as l:
+    db = os.path.join(librarian_dir, "library.json")
+    with Library(open_config(), db) as l:
         try:
             l.open_db()
         except Exception as err:
