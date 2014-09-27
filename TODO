@@ -7,7 +7,7 @@
 #TODO: make standalone librarian_server.py
 #TODO: documents_subdir in librarian_download ini
 
-#TODO: tag / reading progress as new "meta" opf metadata
+#TODO: Library in librarianlib
 
 #TODO: Add meta tags:
     librarian:series = series, series_index
@@ -20,8 +20,7 @@
     yaml: auto-update-files-metadata = true
     -- display diff of changes
 
-
-
 - keep db and opf separate
 - save db to opf when needed
 - do not overwrite db from opf automatically on refresh
+
