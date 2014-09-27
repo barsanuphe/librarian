@@ -7,8 +7,6 @@
 #TODO: make standalone librarian_server.py
 #TODO: documents_subdir in librarian_download ini
 
-#TODO: Library in librarianlib
-
 #TODO: Add meta tags:
     librarian:series = series, series_index
     librarian:tags = tag, tags
