@@ -34,8 +34,10 @@ except:
 
 def has_changed(f, *args):
     def new_f(*args):
-        if f(*args):
+        res = f(*args)
+        if res:
             args[0].has_changed = True
+        return res
     return new_f
 
 
@@ -68,9 +70,10 @@ class Epub(object):
         self.library_dir = library_dir
         self.author_aliases = author_aliases
 
+        self.librarian_metadata = None
+        self.ebook_metadata = None
         self.is_opf_open = False
         self.metadata_filename = ""
-        self.metadata = None
 
         self.tags = []
         self.has_changed = False
@@ -90,19 +93,20 @@ class Epub(object):
             shutil.rmtree(self.temp_dir)
 
     def __str__(self):
-        if self.metadata.get_values("series") != []:
-            first_series = self.metadata.get_values("series")[0]
-            if self.metadata.get_values("series_index") != []:
-                first_series_idx = self.metadata.get_values("series_index")[0]
+        metadata = self.librarian_metadata
+        if metadata.get_values("series") != []:
+            first_series = metadata.get_values("series")[0]
+            if metadata.get_values("series_index") != []:
+                first_series_idx = metadata.get_values("series_index")[0]
                 series_info = "[ %s #%s ]" % (first_series, first_series_idx)
             else:
                 series_info = "[ %s ]" % (first_series)
         else:
             series_info = ""
 
-        first_author = self.metadata.get_values("author")[0]
-        first_title = self.metadata.get_values("title")[0]
-        first_year = self.metadata.get_values("year")[0]
+        first_author = metadata.get_values("author")[0]
+        first_title = metadata.get_values("title")[0]
+        first_year = metadata.get_values("year")[0]
         str = ""
         if self.tags == []:
             str = "%s (%s) %s %s" % (first_author,
@@ -139,7 +143,7 @@ class Epub(object):
     def filename(self):
         template = self.template
         for key in AUTHORIZED_TEMPLATE_PARTS.keys():
-            relevant_parts = self.metadata.get_values(
+            relevant_parts = self.librarian_metadata.get_values(
                 AUTHORIZED_TEMPLATE_PARTS[key])
             if len(relevant_parts) >= 1:
                 template = template.replace(key, relevant_parts[0])
@@ -158,7 +162,7 @@ class Epub(object):
         try:
             self.loaded_metadata = filename_dict
             # for similar interface to OpfFile
-            self.metadata = FakeOpfFile(filename_dict['metadata'],
+            self.librarian_metadata = FakeOpfFile(filename_dict['metadata'],
                                         self.author_aliases)
             self.tags = [el.lower().strip()
                          for el in filename_dict['tags'].split(",")
@@ -175,9 +179,7 @@ class Epub(object):
         return True
 
     def to_database_json(self):
-        if self.has_changed or self.is_opf_open:
-            if not self.is_opf_open:
-                self.open_metadata()
+        if self.has_changed:
             return {
                 "path": self.path,
                 "tags": ",".join(sorted([el for el in self.tags
@@ -186,13 +188,13 @@ class Epub(object):
                 "converted_to_mobi_hash": self.converted_to_mobi_hash,
                 "converted_to_mobi_from_hash":
                     self.converted_to_mobi_from_hash,
-                "metadata": self.metadata.metadata_dict,
+                "metadata": self.librarian_metadata.metadata_dict,
                 "read": self.read.value
                 }
         else:
             return self.loaded_metadata
 
-    def open_metadata(self):
+    def open_ebook_metadata(self):
         if not self.is_opf_open:
             self.temp_dir = tempfile.mkdtemp()
             self.extract_opf_file()
@@ -214,7 +216,10 @@ class Epub(object):
         with open(self.temp_opf, "w") as opf:
             opf.write(cf.decode("utf8"))
 
-        self.metadata = OpfFile(self.temp_opf, self.author_aliases)
+        self.ebook_metadata = OpfFile(self.temp_opf, self.author_aliases)
+        # first import
+        if self.librarian_metadata is None:
+            self.librarian_metadata = self.ebook_metadata
 
     def remove_from_zip(self, zipfname, *filenames):
         tempdir = tempfile.mkdtemp()
@@ -231,7 +236,7 @@ class Epub(object):
             shutil.rmtree(tempdir)
 
     def save_metadata(self):
-        if self.is_opf_open and self.metadata.has_changed:
+        if self.is_opf_open and self.ebook_metadata.has_changed:
             print("Saving epub...")
             self.remove_from_zip(self.path, self.metadata_filename)
             with zipfile.ZipFile(self.path, 'a') as z:
@@ -242,6 +247,23 @@ class Epub(object):
             self.is_opf_open = False
             # clean up
             self.__exit__(None, None, None)
+
+    def sync_ebook_metadata(self):
+        print("Writing metadata to ebook file is disabled for now.")
+        return False
+
+        self.open_ebook_metadata()
+        # TODO: clear ebook_metadata ??
+
+        # copy to ebook_metadata
+        for key in self.librarian_metadata.keys:
+            values = self.librarian_metadata.get_values(key)
+            for value in values:
+                self.ebook_metadata.set_value(key, value, replace=True)
+        self.ebook_metadata.has_changed = True
+        #TODO: go through ebook_metadata and set all values to opf
+        self.save_metadata()
+        self.close_metadata()
 
     @strip_lower
     @has_changed
@@ -263,10 +285,10 @@ class Epub(object):
         return path.split(self.library_dir)[1][1:]
 
     @has_changed
-    def rename_from_metadata(self):
-        if not self.is_opf_open:
-            self.open_metadata()
-        if self.metadata.is_complete and self.library_dir in self.path:
+    def rename_from_metadata(self, force=False):
+        # open ebook metadata if necessary or forced
+        self.open_ebook_metadata(force=force)
+        if self.librarian_metadata.is_complete and self.library_dir in self.path:
             new_name = os.path.join(self.library_dir, self.filename)
             if new_name != self.path:
                 if not os.path.exists(os.path.dirname(new_name)):
@@ -350,28 +372,30 @@ class Epub(object):
 
     def info(self, field_list=None):
         return str(self) + "\n" + "-"*len(str(self)) + "\n" + \
-            self.metadata.show_fields(field_list)
+            self.librarian_metadata.show_fields(field_list)
 
     def write_metadata(self, key, value):
-        if key not in self.metadata.keys:
+        if key not in self.librarian_metadata.keys:
             print("Adding new metadata field", key)
-        self.metadata.set_value(key, value)
+        self.librarian_metadata.set_value(key, value)
 
+    @has_changed
     def update_metadata(self, update_list):
         # force metadata refresh
         if not self.is_opf_open:
-            self.open_metadata()
+            self.open_ebook_metadata()
 
         changes = ""
         for part in update_list:
             try:
                 key, value = part.split(":")
                 # TODO: get all values for field
-                old_values = self.metadata.get_values(key)
+                old_values = self.librarian_metadata.get_values(key)
                 if value.title() not in old_values:
                     # TODO: list of unique fields
-                    self.write_metadata(key, value.title())
                     changes += "%s  -> %s\n" % (old_values, value.title())
+                    self.write_metadata(key, value.title())
+
             except Exception as err:
                 print("Error writing metadata", part, ":", err)
                 continue  # ignore this part only
@@ -385,13 +409,12 @@ class Epub(object):
 
         answer = input("Confirm update? y/n ").lower()
         if answer == 'y':
-            print("Saving ", str(self))
-            self.save_metadata()
+            print("Saving changes.")
+            print(self.info())
+            return True
         else:
-            # refreshing from unmodified epub
-            self.close_metadata()
-            self.open_metadata()
-            print("Discarding changes, reverting to ", str(self))
+            print("Discarding changes, nothing will be saved.")
+            return False
 
     @has_changed
     def set_progress(self, read_value):

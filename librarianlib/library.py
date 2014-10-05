@@ -64,13 +64,13 @@ class Library(object):
         for eb in known_ebooks:
             if eb.path == full_path:
                 is_already_in_db = True
-                eb.open_metadata()
+                eb.open_ebook_metadata(force=False)
                 return eb
         if not is_already_in_db:
             eb = Epub(full_path, self.config["library_dir"],
                       self.config["author_aliases"],
                       self.ebook_filename_template)
-            eb.open_metadata()
+            eb.open_ebook_metadata(force=True)
             print(" ->  NEW EBOOK: ", eb)
             return eb
         return None
@@ -114,11 +114,15 @@ class Library(object):
         print("Database refreshed in %.2fs." % (time.perf_counter() - start))
         return is_incomplete
 
-    def save_db(self, readable=False):
+    def save_db(self, readable=False, sync_with_files=False):
+        print("Saving dabatase...")
         data = {}
         # adding ebooks in alphabetical order
         for ebook in sorted(self.ebooks, key=lambda x: x.filename):
             data[ebook.filename] = ebook.to_database_json()
+            if sync_with_files:
+                ebook.sync_ebook_metadata()
+
         # dumping in json file
         with open(self.db, "w") as data_file:
             if readable:
@@ -414,7 +418,7 @@ class Library(object):
         found_incomplete = False
         incomplete_list = ""
         for eb in self.ebooks:
-            if not eb.metadata.is_complete:
+            if not eb.librarian_metadata.is_complete:
                 found_incomplete = True
                 incomplete_list += " -> %s\n" % eb.path
         if found_incomplete:

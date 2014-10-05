@@ -46,6 +46,10 @@ class EbookMetadata(object):
         self.has_changed = False
 
     @property
+    def is_empty(self):
+        return (self.keys == [])
+
+    @property
     def keys(self):
         return sorted(self.metadata_dict.keys())
 
@@ -80,12 +84,10 @@ class FakeOpfFile(EbookMetadata):
 
     def set_value(self, name, value, replace=False):
         name = METADATA_ALIASES.get(name, name)
-
         if replace:
             self.metadata_dict[name] = [value]
         elif value not in self.metadata_dict[name]:
             self.metadata_dict[name].append(value)
-
         self.has_changed = True
 
 
@@ -106,6 +108,7 @@ class OpfFile(EbookMetadata):
         return self.metadata_dict.get(name, None)
 
     def parse(self):
+        print("Parsing OPF.")
         for node in self.metadata_element:
             # passing comments
             if node.tag == etree.Comment:
@@ -147,10 +150,12 @@ class OpfFile(EbookMetadata):
         name = METADATA_ALIASES.get(name, name)
 
         nodes = self.get_elements(name)
+        print(nodes, name)
 
+        # TODO:
         # if replace, must be unambiguous
-        if replace:
-            assert len(nodes) == 1
+        #if replace:
+            #assert len(nodes) == 1
 
         # modify or insert new metadata
         found = False

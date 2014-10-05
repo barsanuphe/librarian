@@ -15,7 +15,7 @@ def list_tags(ebooks):
 def list_authors(ebooks):
     all_authors = defaultdict(lambda: 0)
     for ebook in ebooks:
-        author = ebook.metadata.get_values("author")[0]
+        author = ebook.librarian_metadata.get_values("author")[0]
         all_authors[author] += 1
     return all_authors
 
@@ -69,8 +69,9 @@ def match_this(ebook, value, field=None, exact=False):
     if field is None:
         # search everywhere
         result = False  # OR search
-        for key in ebook.metadata.keys:
-            field_value = [el for el in ebook.metadata.get_values(key)
+        for key in ebook.librarian_metadata.keys:
+            field_value = [el for el
+                           in ebook.librarian_metadata.get_values(key)
                            if el is not None]
             is_list = (type(field_value) == list)
             if exact:
@@ -105,7 +106,7 @@ def match_this(ebook, value, field=None, exact=False):
             else:
                 return any([(value in tag.lower()) for tag in ebook.tags])
         else:
-            field_value = ebook.metadata.get_values(field)
+            field_value = ebook.librarian_metadata.get_values(field)
             is_list = (type(field_value) == list)
             if exact:
                 return (not is_list and value == field_value.lower()) or \

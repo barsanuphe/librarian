@@ -233,6 +233,11 @@ if __name__ == "__main__":
                                nargs='+',
                                help='Write one or several field:value \
                                metadata.')
+    group_tagging.add_argument('--write-to-file',
+                               dest='write_to_file',
+                               action='store_true',
+                               default=False,
+                               help='Write the metada to the ebook file')
 
     group_tagging = parser.add_argument_group('Configuration',
                                               'Configuration options.')
@@ -287,6 +292,7 @@ if __name__ == "__main__":
                 LIBRARY_CONFIG = config_filename
 
     db = os.path.join(librarian_dir, "library.json")
+    automatic_save = True
     with Library(open_config(), db) as l:
         try:
             l.open_db()
@@ -366,17 +372,21 @@ if __name__ == "__main__":
                         print(ebook.info(args.info))
 
                 if args.write_metadata is not None:
-                    ebook.update_metadata(args.write_metadata)
+                    if not ebook.update_metadata(args.write_metadata):
+                        automatic_save = False
 
                 if args.read is not None:
                     ebook.set_progress(args.read)
+
+                if args.write_to_file:
+                    ebook.sync_ebook_metadata()
 
             if args.sync:
                 if args.sync is True and args.kindle:
                     l.sync_with_kindle(filtered)
                 elif os.path.exists(args.sync) and os.path.isdir(args.sync):
                     l.sync_with_kindle(filtered, kindle_sync=False,
-                                       destination_dir=args.sync)
+                                        destination_dir=args.sync)
                 else:
                     print("Invalid sync command.")
                     sys.exit()
@@ -387,7 +397,9 @@ if __name__ == "__main__":
                 else:
                     l.serve(filtered, kindle_sync=False)
 
-            l.save_db(args.readable)
+            if automatic_save:
+                # TODO: automatic save to file!!! + manual
+                l.save_db(args.readable)
         except Exception as err:
             print(err)
             traceback.print_exc()
