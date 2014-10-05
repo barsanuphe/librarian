@@ -18,7 +18,6 @@ class Library(object):
         self.ebooks = []
         self.backup_imported_ebooks = True
         self.scrape_root = None
-        self.interactive = False
         self.ebook_filename_template = "$a/$a ($y) $t"
         self.config = config
         self.db = db
@@ -64,13 +63,13 @@ class Library(object):
         for eb in known_ebooks:
             if eb.path == full_path:
                 is_already_in_db = True
-                eb.open_ebook_metadata(force=False)
+                eb.open_ebook_metadata()
                 return eb
         if not is_already_in_db:
             eb = Epub(full_path, self.config["library_dir"],
                       self.config["author_aliases"],
                       self.ebook_filename_template)
-            eb.open_ebook_metadata(force=True)
+            eb.open_ebook_metadata()
             print(" ->  NEW EBOOK: ", eb)
             return eb
         return None
@@ -237,29 +236,29 @@ class Library(object):
                               self.config["library_dir"],
                               self.config["author_aliases"],
                               self.ebook_filename_template)
-            temp_ebook.open_metadata()
-            if not temp_ebook.metadata.is_complete:
+            temp_ebook.open_ebook_metadata()
+            if not temp_ebook.librarian_metadata.is_complete:
                 print(" -> skipping ebook with incomplete metadata: ", ebook)
                 continue
 
             # check if book not already in library
             already_in_db = False
             for eb in self.ebooks:
-                same_authors = (eb.metadata.get_values("author") ==
-                                temp_ebook.metadata.get_values("author"))
-                same_title = (eb.metadata.get_values("title") ==
-                              temp_ebook.metadata.get_values("title"))
+                same_authors = (eb.librarian_metadata.get_values("author") ==
+                                temp_ebook.librarian_metadata.get_values("author"))
+                same_title = (eb.librarian_metadata.get_values("title") ==
+                              temp_ebook.librarian_metadata.get_values("title"))
                 if same_authors and same_title:
                     already_in_db = True
                     break
             if already_in_db:
                 print(" -> library already contains an entry for: ",
-                      temp_ebook.metadata.get_values("author")[0],
-                      " - ", temp_ebook.metadata.get_values("title")[0],
+                      temp_ebook.librarian_metadata.get_values("author")[0],
+                      " - ", temp_ebook.librarian_metadata.get_values("title")[0],
                       ": ", ebook)
                 continue
 
-            if self.interactive:
+            if self.config.get("interactive", True):
                 print("About to import: %s" % str(temp_ebook))
                 answer = input("Confirm? \ny/n? ")
                 if answer.lower() == "n":

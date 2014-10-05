@@ -233,7 +233,7 @@ if __name__ == "__main__":
                                nargs='+',
                                help='Write one or several field:value \
                                metadata.')
-    group_tagging.add_argument('--write-to-file',
+    group_tagging.add_argument('--update-files-metadata',
                                dest='write_to_file',
                                action='store_true',
                                default=False,

@@ -287,7 +287,7 @@ class Epub(object):
     @has_changed
     def rename_from_metadata(self, force=False):
         # open ebook metadata if necessary or forced
-        self.open_ebook_metadata(force=force)
+        self.open_ebook_metadata()
         if self.librarian_metadata.is_complete and self.library_dir in self.path:
             new_name = os.path.join(self.library_dir, self.filename)
             if new_name != self.path:

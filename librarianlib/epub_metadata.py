@@ -108,7 +108,6 @@ class OpfFile(EbookMetadata):
         return self.metadata_dict.get(name, None)
 
     def parse(self):
-        print("Parsing OPF.")
         for node in self.metadata_element:
             # passing comments
             if node.tag == etree.Comment:
