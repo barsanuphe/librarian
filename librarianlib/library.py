@@ -59,9 +59,9 @@ class Library(object):
         else:
             print("No DB, refresh!")
 
-    def _refresh_ebook(self, full_path, old_db):
+    def _return_or_create_new_ebook(self, full_path, known_ebooks):
         is_already_in_db = False
-        for eb in old_db:
+        for eb in known_ebooks:
             if eb.path == full_path:
                 is_already_in_db = True
                 eb.open_metadata()
@@ -78,40 +78,32 @@ class Library(object):
     def refresh_db(self):
         print("Refreshing library...")
         start = time.perf_counter()
-        old_db = [eb for eb in self.ebooks]
+        old_db = list(self.ebooks)  # copy
         self.ebooks = []
 
+        # list all books in library root
         all_ebooks_in_library_dir = []
         for root, dirs, files in os.walk(self.config["library_dir"]):
             all_ebooks_in_library_dir.extend([os.path.join(root, el)
                                               for el in files
                                               if el.lower().endswith(".epub")])
 
-        cpt = 1
-        num_threads = 1  # cpu_count()
-        with ThreadPoolExecutor(max_workers=num_threads) as executor:
-            future_to_ebook = {
-                executor.submit(self._refresh_ebook,
-                                path,
-                                old_db): path
-                for path in sorted(all_ebooks_in_library_dir)
-                }
-            for future in as_completed(future_to_ebook):
-                if future.result() is not None:
-                    print(" %.2f%%" % (100*cpt/len(all_ebooks_in_library_dir)),
+        # refresh list
+        for (i,ebook) in enumerate(sorted(all_ebooks_in_library_dir)):
+            eb = self._return_or_create_new_ebook(ebook, old_db)
+            if eb is not None:
+                print(" %.2f%%" % (100*i/len(all_ebooks_in_library_dir)),
                           end="\r", flush=True)
-                    cpt += 1
-                    self.ebooks.append(future.result())
+                # rename if necessary
+                eb.rename_from_metadata()
+                self.ebooks.append(eb)
 
-        # not multithreaded to avoir concurrent folder creation
-        for eb in self.ebooks:
-            eb.rename_from_metadata()
-
-        to_delete = [eb for eb in old_db if eb not in self.ebooks]
-        for eb in to_delete:
+        # display missing ebooks
+        deleted = [eb for eb in old_db if eb not in self.ebooks]
+        for eb in deleted:
             print(" -> DELETED EBOOK: ", eb)
 
-        # remove empty dirs in self.config["library_dir"]
+        # remove empty dirs in library root
         for root, dirs, files in os.walk(self.config["library_dir"],
                                          topdown=False):
             for dir in [os.path.join(root, el) for el in dirs if
