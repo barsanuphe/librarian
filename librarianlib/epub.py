@@ -53,8 +53,8 @@ AUTHORIZED_TEMPLATE_PARTS = {
     "$t": "title",
     "$s": "series",
     "$i": "series_index",
+    "$p": "progress",
 }
-
 
 class ReadStatus(Enum):
     unread = 0
@@ -147,6 +147,8 @@ class Epub(object):
                 AUTHORIZED_TEMPLATE_PARTS[key])
             if len(relevant_parts) >= 1:
                 template = template.replace(key, relevant_parts[0])
+            elif AUTHORIZED_TEMPLATE_PARTS[key] == "progress":
+                template = template.replace(key, self.read.name)
         template = template.replace(":", "").replace("?", "")
         return "%s.%s" % (template, self.extension)
 

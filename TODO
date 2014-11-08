@@ -16,3 +16,5 @@
 #TODO:
     yaml: auto-update-files-metadata = true
     -- display diff of changes
+
+#TODO: checks when using alternative config file

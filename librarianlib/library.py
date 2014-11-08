@@ -18,7 +18,8 @@ class Library(object):
         self.ebooks = []
         self.backup_imported_ebooks = True
         self.scrape_root = None
-        self.ebook_filename_template = "$a/$a ($y) $t"
+        self.ebook_filename_template = config.get("ebook_filename_template",
+                                                  "$a/$a ($y) $t")
         self.config = config
         self.db = db
 
@@ -173,9 +174,11 @@ class Library(object):
         epub_name = mobi.replace(".mobi", ".epub")
         if not os.path.exists(epub_name):
             print("   + Converting to .epub: ", mobi)
-            return subprocess.call(['ebook-convert', mobi, epub_name,
+            return subprocess.call(['ebook-convert',
+                                    mobi,
+                                    epub_name,
                                     "--output-profile", "kindle_pw"],
-                                   stdout=subprocess.DEVNULL)
+                                    stdout=subprocess.DEVNULL)
         else:
             return 0
 
