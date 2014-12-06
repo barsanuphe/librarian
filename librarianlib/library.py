@@ -123,6 +123,11 @@ class Library(object):
             if sync_with_files:
                 ebook.sync_ebook_metadata()
 
+        # copy previous db
+        if os.path.exists("%s_backup" % self.db):
+            os.remove("%s_backup" % self.db)
+        shutil.copyfile(self.db, "%s_backup" % self.db)
+
         # dumping in json file
         with open(self.db, "w") as data_file:
             if readable:
