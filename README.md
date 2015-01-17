@@ -12,7 +12,7 @@ This is made of two parts:
     and sync with a Kindle Paperwhite.
     It can also run queries using all metadata, and add and remove tags which
     can be converted to Kindle collections with LibrarianSync.
-    There is experimental support to write metadata, and to server ebooks over http
+    There is experimental support to write metadata, and to serve ebooks over http
     to LibrarianSync on a Kindle.
     It is in early stages. See disclaimer below.
 
