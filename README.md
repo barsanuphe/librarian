@@ -1,26 +1,14 @@
-# Librarian & LibrarianSync
+**NOTE**: if you are looking for LibrarianSync, it has been moved to [its own repository](https://github.com/barsanuphe/librariansync).
 
-Epub Ebook manager that can sync to a Kindle Paperwhite and automatically create
-collections from tags (or folders).
+# Librarian
 
-## What it is
-
-This is made of two parts:
-
-- [librarian](#librarian):
-    which can import epub ebooks, rename them from metadata, convert them to mobi,
-    and sync with a Kindle Paperwhite.
-    It can also run queries using all metadata, and add and remove tags which
-    can be converted to Kindle collections with LibrarianSync.
-    There is experimental support to write metadata, and to serve ebooks over http
-    to LibrarianSync on a Kindle.
-    It is in early stages. See disclaimer below.
-
-- [LibrarianSync](#librariansync):
-    runs independantly on the Kindle, and can automatically build the collections
-    based on the tags added with librarian or according to the folder structure.
-    It and should work on all Kindle 5 models (Touch, Paperwhite 1 & 2) with
-    reasonnably recent firmware.
+Epub Ebook managerwhich can import epub ebooks, rename them from metadata, convert them to mobi,
+and sync with a Kindle Paperwhite.
+It can also run queries using all metadata, and add and remove tags which
+can be converted to Kindle collections with [LibrarianSync](https://github.com/barsanuphe/librariansync).
+There is experimental support to write metadata, and to serve ebooks over http
+to LibrarianSync on a Kindle.
+It is in early stages. See disclaimer below.
 
 ## Quick disclaimer about librarian
 
@@ -33,19 +21,10 @@ This is made of two parts:
 
 ## Table of Contents
 
-- [Librarian](#librarian)
-    - [Requirements](#requirements)
-    - [Configuration](#configuration)
-    - [Usage](#usage)
-    - [Example Commands](#example-commands)
-
-- [LibrarianSync](#librariansync)
-    - [Requirements](#requirements-1)
-    - [Installation](#installation)
-    - [Configuration](#configuration-1)
-    - [Usage](#usage-1)
-    - [What it does](#what-it-does)
-    - [collection.json example](#collectionsjson-example)
+- [Requirements](#requirements)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [Example Commands](#example-commands)
 
 ## Librarian
 
@@ -262,138 +241,4 @@ Display the title and description for all of your Aldous Huxley ebooks:
 Mark all ebooks by Alexandre Dumas as read:
 
     ./librarian -f author:dumas --progress read
-
-## LibrarianSync
-
-This is the part that generates the Kindle collections from a json file.
-It can be used completely independently of librarian, provided the
-json file is correct (see example later) and in the correct location
-(inside the **extensions** folder on the Kindle).
-
-### Requirements
-
-- [A jailbroken Kindle Paperwhite2](http://www.mobileread.com/forums/showthread.php?t=186645)
-- [Mobiread Kindlet Kit installed](http://www.mobileread.com/forums/showthread.php?t=233932)
-- [KUAL installed](http://www.mobileread.com/forums/showthread.php?t=203326)
-- [Python installed](http://www.mobileread.com/forums/showthread.php?t=225030) (snapshot > 0.10N-r10867)
-
-For instructions on how to do that, try the
-[mobileread forum](http://www.mobileread.com/forums/forumdisplay.php?f=150) in
-general.
-
-This script is inspired by
-[this thread](http://www.mobileread.com/forums/showthread.php?t=160855).
-
-
-### Installation
-
-Once the requirements are met, just copy the **librariansync** folder into the
-**extensions** folder on the kindle.
-
-Alternatively, it is possible to build a kindle update package using
-[KindleTool](https://github.com/NiLuJe/KindleTool) by running
-*tools/build-librariansync-bin.sh*.
-This .bin package is then installable through the Kindle interface.
-
-### Usage
-
-From the Kindle, launch KUAL. A new menu option *Librarian Sync* should appear,
-which contains two entries:
-
-- *Rebuild collections (from json)* :
-    to clear all existing collections and rebuild them using the json file
-- *Update collections (from json)* :
-    to only add ebooks to existing or new collections, using the json file
-- *Rebuild collections (from folders)* :
-    to clear all existing collections and rebuild them using the folder structure
-    inside the **documents** folder.
-- *Rebuild collections (from calibre plugin json)* :
-    to clear all existing collections and rebuild them using a json file generated
-    by the Calibre Kindle collections plugin
-- *Update collections (from calibre plugin json)* :
-    to only add ebooks to existing or new collections, using a json file generated
-    by the Calibre Kindle collections plugin
-- *Export current collections* :
-    generates exported_collections.json in the **extensions** folder from current
-    collections.
-- *Download from librarian*:
-    If *librarian* is serving ebooks, retrieves the list of available files,
-    downloads them all, retrieves the collections.json for the new ebooks, and
-    automatically updates collections.
-- *Delete all collections*
-
-
-### Configuration
-
-*LibrarianSync* only requires configuration when used to download ebooks served
-over http by *librarian*.
-
-In the **extensions/librariansync** folder, there should be a *librarian_download.ini*
-file such as:
-
-    [server]
-    IP = 192.168.0.5|192.168.15.201
-    port = 13698
-
-
-*IP* is a |-separated list of IP addresses.
-The IP address should be the same as the one given in the *librarian* configuration.
-
-When more than one address is given, *LibrarianSync* tries to connect to each one.
-The idea is to be able to download using Wi-Fi or USBNetwork, so the list of IP
-addresses can define serveral interfaces of the same server, or different servers.
-
-### What it does
-
-After syncing with the main script librarian, and if tags are defined in
-library.yaml for entries, the **extensions** folder on the Kindle should contain
-a file, collections.json.
-
-When *rebuilding collections*, LibrarianSync removes all collections, then adds
-the collections as defined in collections.json.
-
-When *adding to them*, it preserves already existing collections, and only either
-add entries to them or creates new collections as defined in collections.json.
-
-When *rebuilding collection from folders*, it removes all collections and
-recursively scans for any supported file inside the **documents** folder.
-Subfolders will be treated as different collections.
-Ebooks directly in the **documents** folder are ignored.
-
-When *rebuilding collections from Calibre Kindle plugin json*, LibrarianSync
-removes all collections, then adds the collections as defined in a
-calibre_plugin.json in the **extensions** folder.
-
-When *exporting collections*, a new file, exported_collections.json, is created
-from the current collections in the **extensions** folder. This file can be
-backed up, modified, and used to *rebuild collections* (if renamed
-*collections.json*).
-At the same time, another json file is written, to be used with the Calibre
-Kindle plugin.
-
-When *downloading from librarian*, it connects (using Wi-Fi or USBNetwork, depending
-on your configuration) to the http server temporarily created by *librarian*,
-downloads the available ebooks, and updates the collections using information given
-by *librarian*.
-*LibrarianSync* notifies *librarian* when it is done, and *librarian* shuts down
-its server automatically.
-
-Always allow for a few seconds for the Kindle database and interface to reflect the
-changes made.
-
-### collections.json example
-
-Each ebook path (relative to the **documents** folder) is associated to a
-list of collection names.
-
-If the path begins with *re:*, then it is interpreted as a python regular
-expression.
-Any ebook matching it will be added to the collections in the associated list.
-
-    {
-        "library/Alexandre Dumas/Alexandre Dumas (2004) Les Trois Mousquetaires.mobi": ["gutenberg","french","already read"],
-        "library/Alexandre Dumas/Alexandre Dumas (2004) Vingt Ans Après.mobi": ["gutenberg","french","not read yet"],
-        "library/Alexandre Dumas/Alexandre Dumas (2011) Le Comte De Monte-Cristo.mobi": ["gutenberg","french","already read"],
-        "re:Alexandre Dumas (Père|Fils)": ["dumas"]
-    }
 
